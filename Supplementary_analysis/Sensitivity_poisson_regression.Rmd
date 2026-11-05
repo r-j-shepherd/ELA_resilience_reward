@@ -1,0 +1,44 @@
+---
+title: "Poisson_sensitivity"
+output: html_document
+---
+
+```{r}
+
+bas_rresp <- readRDS("Data/bas.Rds") 
+
+baseline_bas <- lapply(bas_rresp, function(df) df[df$eventname == "baseline_year_1_arm_1", ])
+
+```
+
+
+# Resilience model
+
+```{r}
+model <- function(df) {
+  glm(rew_resp_modified ~ race_ethnicity + sex + ps_behav + pos_school_env ,
+      family = poisson, data = df)
+}
+
+mod <- lapply(baseline_bas, model)
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+table_res <- results_tidy %>% select(term, estimate, std.error, p.value, conf.low, conf.high)
+```
+
+# Adversity model
+
+```{r}
+model <- function(df) {
+  glm(rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision,
+      family = poisson, data = df)
+}
+
+mod <- lapply(baseline_bas, model)
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+table_adv <- results_tidy %>% select(term, estimate, std.error, p.value, conf.low, conf.high)
+```
+

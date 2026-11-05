@@ -1,0 +1,706 @@
+---
+title: "all_age_interactions"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(mice)
+library(lme4)
+library(broom.mixed)
+library(tictoc)
+library(lmerTest)
+library(car)
+library(mitml)
+library(miceadds)
+library(emmeans)
+library(mitools)
+library(ggplot2)
+
+rm(list = ls())
+```
+
+```{r load data}
+
+bas_rresp <- readRDS("Data/bas.Rds")
+class(bas_rresp) <- "mitml.list"
+
+```
+
+
+### BAS Reward Responsiveness - Age/adversity interactions ###
+
+### DEPRIVATION ###
+
+# Lack of supervision
+
+```{r}
+
+model_null <- with(bas_rresp, lmer
+  (rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), 
+   REML = FALSE, control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + lack_supervision*age + lack_supervision*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+lack_supervision_interaction <- testModels(model_alt, model_null, method = "D1")
+
+lack_supervision_interaction
+
+saveRDS(lack_supervision_interaction, file = "Results/behavioral/age_interaction/lack_supervision_d1.Rds") 
+
+lack_supervision_interaction <- readRDS("Results/behavioral/age_interaction/lack_supervision_d1.Rds")
+
+lack_supervision_interaction
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)  
+```
+
+# Primary caregiver lack of support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp*age + primary_cg_lack_supp*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+prim_cg_lack_support_interaction <- testModels(model_alt, model_null, method = "D1")
+
+prim_cg_lack_support_interaction
+
+saveRDS(prim_cg_lack_support_interaction, file = "Results/behavioral/age_interaction/primary_cg_lack_supp_d1.Rds") 
+
+prim_cg_lack_support_interaction <- readRDS("Results/behavioral/age_interaction/primary_cg_lack_supp_d1.Rds")
+```
+
+
+# Secondary caregiver lack of support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + second_cg_lack_supp*age + second_cg_lack_supp*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+sec_cg_lack_support_interaction <- testModels(model_alt, model_null, method = "D1")
+
+sec_cg_lack_support_interaction
+
+saveRDS(sec_cg_lack_support_interaction, file = "Results/behavioral/age_interaction/second_cg_lack_supp_d1.Rds") 
+
+sec_cg_lack_support_interaction <- readRDS("Results/behavioral/age_interaction/second_cg_lack_supp_d1.Rds")
+
+```
+
+
+
+### THREAT ###
+
+# YP Family Conflict
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + yp_family_conflict*age + yp_family_conflict*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+yp_family_conflict_interaction <- testModels(model_alt, model_null, method = "D1")
+
+yp_family_conflict_interaction
+
+saveRDS(yp_family_conflict_interaction, file = "Results/behavioral/age_interaction/yp_family_conflict_d1.Rds") 
+
+yp_family_conflict_interaction <- readRDS("Results/behavioral/age_interaction/yp_family_conflict_d1.Rds")
+```
+
+
+
+
+
+### Linear combination of beta coefficients (using emtrends) ###
+
+## Lack supervision
+
+```{r}
+
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + lack_supervision*age + lack_supervision*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/age_interaction/lack_supervision_age_model.Rds") 
+
+```
+
+
+```{r}
+
+modlist <- readRDS("Results/behavioral/age_interaction/lack_supervision_age_model.Rds") 
+
+get_emtrends <- function(model) {
+  emtrends(model, ~ age, var = "lack_supervision", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+}
+
+
+clean_emtrends <- function(df) {
+  df %>%
+    rename(estimate = lack_supervision.trend, SE = SE) %>%
+    select(age, estimate, SE)
+}
+
+emtrends_list <- lapply(modlist, get_emtrends)
+emtrends_list_clean <- lapply(emtrends_list, clean_emtrends)
+
+pool_emtrends_at_age <- function(emtrends_list, target_age) {
+  est_se <- lapply(emtrends_list, function(df) {
+    row <- df[df$age == target_age, ]
+    if (nrow(row) != 1) stop(paste("Problem with age:", target_age))
+    list(est = row$estimate, se = row$SE)
+  })
+
+  estimates <- sapply(est_se, `[[`, "est")
+  ses <- sapply(est_se, `[[`, "se")
+
+  pooled <- pool.scalar(Q = estimates, U = ses^2)
+
+  # Critical t-value for 95% CI
+  t_crit <- qt(0.975, df = pooled$df)
+
+  # Compute confidence intervals
+  lower_ci <- pooled$qbar - t_crit * sqrt(pooled$t)
+  upper_ci <- pooled$qbar + t_crit * sqrt(pooled$t)
+
+  data.frame(
+    age = target_age,
+    estimate = pooled$qbar,
+    std.error = sqrt(pooled$t),
+    df = pooled$df,
+    p.value = 2 * pt(abs(pooled$qbar / sqrt(pooled$t)), df = pooled$df, lower.tail = FALSE),
+    ci.lower = lower_ci,
+    ci.upper = upper_ci
+  )
+}
+
+
+# apply across ages
+ages <- c(0, 2, 4)
+pooled_age <- bind_rows(
+  lapply(ages, function(a) pool_emtrends_at_age(emtrends_list_clean, a))
+)
+
+saveRDS(pooled_age, file = "Results/behavioral/age_interaction/lack_supervision_age_emtrends.Rds") 
+
+```
+
+Plot
+
+```{r}
+
+plot <- ggplot(pooled_age, aes(x = age, y = estimate)) +
+  geom_line(color = "navy", size = 1) +              
+  geom_point(size = 3, color = "black") +              
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), 
+                width = 0.2,                             
+                color = "black") +
+  scale_x_continuous(breaks = c(0, 2, 4),
+                     labels = c("9/10", "11/12", "13/14")) +      
+  labs(
+    title = str_wrap("Effect of age 9/10 lack of supervison on BAS Reward Responsiveness with Age", width = 40),
+    x = "Age (years)",
+    y = "Pooled Estimate (95% CI)"
+  ) +
+   geom_hline(yintercept = 0, linetype = "dotted", color = "gray40", size = 0.8) +
+  theme_minimal(base_size = 14) +                         # Clean minimal theme with bigger base font
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),  # Center and bold title
+    axis.title = element_text()
+  )
+
+
+plot <- ggplot(pooled_age, aes(x = age, y = estimate)) +
+  geom_line(color = "navy", size = 1) +              
+  geom_point(size = 3, color = "black") +              
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), 
+                width = 0.2,                             
+                color = "black") +
+  scale_x_continuous(breaks = c(0, 2, 4),
+                     labels = c("9/10", "11/12", "13/14")) +      
+  scale_y_continuous(limits = c(-0.5, 0.5)) +   # <- Set same limits for all plots
+  labs(
+    title = str_wrap("Effect of age 9/10 lack of supervision on BAS Reward Responsiveness with Age", width = 40),
+    x = "Age (years)",
+    y = "Pooled Estimate (95% CI)"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "gray40", size = 0.8) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text()
+  )
+
+plot
+
+ggsave(plot,file="Plots/lack_supervision_age_emtrends.Rds.png")
+
+ggsave("Plots/lack_supervision_age_emtrends.Rds.svg", , plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+## Lack primary caregiver support
+
+```{r}
+
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp*age + primary_cg_lack_supp*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/age_interaction/lack_prim_supp_age_model.Rds") 
+
+```
+
+
+```{r}
+
+modlist <- readRDS("Results/behavioral/age_interaction/lack_prim_supp_age_model.Rds") 
+
+get_emtrends <- function(model) {
+  emtrends(model, ~ age, var = "primary_cg_lack_supp", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+}
+
+
+clean_emtrends <- function(df) {
+  df %>%
+    rename(estimate = primary_cg_lack_supp.trend, SE = SE) %>%
+    select(age, estimate, SE)
+}
+
+emtrends_list <- lapply(modlist, get_emtrends)
+emtrends_list_clean <- lapply(emtrends_list, clean_emtrends)
+
+pool_emtrends_at_age <- function(emtrends_list, target_age) {
+  est_se <- lapply(emtrends_list, function(df) {
+    row <- df[df$age == target_age, ]
+    if (nrow(row) != 1) stop(paste("Problem with age:", target_age))
+    list(est = row$estimate, se = row$SE)
+  })
+
+  estimates <- sapply(est_se, `[[`, "est")
+  ses <- sapply(est_se, `[[`, "se")
+
+  pooled <- pool.scalar(Q = estimates, U = ses^2)
+
+  # Critical t-value for 95% CI
+  t_crit <- qt(0.975, df = pooled$df)
+
+  # Compute confidence intervals
+  lower_ci <- pooled$qbar - t_crit * sqrt(pooled$t)
+  upper_ci <- pooled$qbar + t_crit * sqrt(pooled$t)
+
+  data.frame(
+    age = target_age,
+    estimate = pooled$qbar,
+    std.error = sqrt(pooled$t),
+    df = pooled$df,
+    p.value = 2 * pt(abs(pooled$qbar / sqrt(pooled$t)), df = pooled$df, lower.tail = FALSE),
+    ci.lower = lower_ci,
+    ci.upper = upper_ci
+  )
+}
+
+
+# apply across ages
+ages <- c(0, 2, 4)
+pooled_age <- bind_rows(
+  lapply(ages, function(a) pool_emtrends_at_age(emtrends_list_clean, a))
+)
+
+saveRDS(pooled_age, file = "Results/behavioral/age_interaction/primary_cg_lack_supp_age_emtrends.Rds") 
+
+```
+
+Plot
+
+```{r}
+
+plot <- ggplot(pooled_age, aes(x = age, y = estimate)) +
+  geom_line(color = "navy", size = 1) +              
+  geom_point(size = 3, color = "black") +              
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), 
+                width = 0.2,                             
+                color = "black") +
+  scale_x_continuous(breaks = c(0, 2, 4),
+                     labels = c("9/10", "11/12", "13/14")) +      
+  scale_y_continuous(limits = c(-0.5, 0.5)) +   # <- Set same limits for all plots
+  labs(
+    title = str_wrap("Effect of age 9/10 lack of primary caregiver support on BAS Reward Responsiveness with Age", width = 40),
+    x = "Age (years)",
+    y = "Pooled Estimate (95% CI)"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "gray40", size = 0.8) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text()
+  )
+
+plot
+
+ggsave(plot,file="Plots/primary_cg_lack_supp_age_emtrends.Rds.png")
+
+ggsave("Plots/primary_cg_lack_supp_age_emtrends.Rds.svg", , plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+
+### Lack secondary caregiver support
+
+
+
+```{r}
+
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + second_cg_lack_supp*age + second_cg_lack_supp*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/age_interaction/lack_second_supp_age_model.Rds") 
+
+```
+
+
+```{r}
+
+modlist <- readRDS("Results/behavioral/age_interaction/lack_second_supp_age_model.Rds") 
+
+
+get_emtrends <- function(model) {
+  emtrends(model, ~ age, var = "second_cg_lack_supp", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+}
+
+
+clean_emtrends <- function(df) {
+  df %>%
+    rename(estimate = second_cg_lack_supp.trend, SE = SE) %>%
+    select(age, estimate, SE)
+}
+
+emtrends_list <- lapply(modlist, get_emtrends)
+emtrends_list_clean <- lapply(emtrends_list, clean_emtrends)
+
+pool_emtrends_at_age <- function(emtrends_list, target_age) {
+  est_se <- lapply(emtrends_list, function(df) {
+    row <- df[df$age == target_age, ]
+    if (nrow(row) != 1) stop(paste("Problem with age:", target_age))
+    list(est = row$estimate, se = row$SE)
+  })
+
+  estimates <- sapply(est_se, `[[`, "est")
+  ses <- sapply(est_se, `[[`, "se")
+
+  pooled <- pool.scalar(Q = estimates, U = ses^2)
+
+  # Critical t-value for 95% CI
+  t_crit <- qt(0.975, df = pooled$df)
+
+  # Compute confidence intervals
+  lower_ci <- pooled$qbar - t_crit * sqrt(pooled$t)
+  upper_ci <- pooled$qbar + t_crit * sqrt(pooled$t)
+
+  data.frame(
+    age = target_age,
+    estimate = pooled$qbar,
+    std.error = sqrt(pooled$t),
+    df = pooled$df,
+    p.value = 2 * pt(abs(pooled$qbar / sqrt(pooled$t)), df = pooled$df, lower.tail = FALSE),
+    ci.lower = lower_ci,
+    ci.upper = upper_ci
+  )
+}
+
+
+# apply across ages
+ages <- c(0, 2, 4)
+pooled_age <- bind_rows(
+  lapply(ages, function(a) pool_emtrends_at_age(emtrends_list_clean, a))
+)
+
+saveRDS(pooled_age, file = "Results/behavioral/age_interaction/second_cg_lack_supp_age_emtrends.Rds") 
+
+```
+
+Plot
+
+```{r}
+
+plot <- ggplot(pooled_age, aes(x = age, y = estimate)) +
+  geom_line(color = "navy", size = 1) +              
+  geom_point(size = 3, color = "black") +              
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), 
+                width = 0.2,                             
+                color = "black") +
+  scale_x_continuous(breaks = c(0, 2, 4),
+                     labels = c("9/10", "11/12", "13/14")) +      
+  scale_y_continuous(limits = c(-0.5, 0.5)) +   # <- Set same limits for all plots
+  labs(
+    title = str_wrap("Effect of age 9/10 lack of secondary caregiver support on BAS Reward Responsiveness with Age", width = 40),
+    x = "Age (years)",
+    y = "Pooled Estimate (95% CI)"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "gray40", size = 0.8) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text()
+  )
+
+plot
+
+ggsave(plot,file="Plots/second_cg_lack_supp_emtrends.Rds.png")
+
+ggsave("Plots/second_cg_lack_supp_emtrends.Rds.svg", , plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+## YP Family Conflict
+
+```{r}
+
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + yp_family_conflict*age + yp_family_conflict*age_sq + 
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/age_interaction/yp_family_conflict_age_model.Rds") 
+
+```
+
+
+```{r}
+
+modlist <- readRDS("Results/behavioral/age_interaction/yp_family_conflict_age_model.Rds") 
+
+get_emtrends <- function(model) {
+  emtrends(model, ~ age, var = "yp_family_conflict", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+}
+
+
+clean_emtrends <- function(df) {
+  df %>%
+    rename(estimate = yp_family_conflict.trend, SE = SE) %>%
+    select(age, estimate, SE)
+}
+
+emtrends_list <- lapply(modlist, get_emtrends)
+emtrends_list_clean <- lapply(emtrends_list, clean_emtrends)
+
+pool_emtrends_at_age <- function(emtrends_list, target_age) {
+  est_se <- lapply(emtrends_list, function(df) {
+    row <- df[df$age == target_age, ]
+    if (nrow(row) != 1) stop(paste("Problem with age:", target_age))
+    list(est = row$estimate, se = row$SE)
+  })
+
+  estimates <- sapply(est_se, `[[`, "est")
+  ses <- sapply(est_se, `[[`, "se")
+
+  pooled <- pool.scalar(Q = estimates, U = ses^2)
+
+  # Critical t-value for 95% CI
+  t_crit <- qt(0.975, df = pooled$df)
+
+  # Compute confidence intervals
+  lower_ci <- pooled$qbar - t_crit * sqrt(pooled$t)
+  upper_ci <- pooled$qbar + t_crit * sqrt(pooled$t)
+
+  data.frame(
+    age = target_age,
+    estimate = pooled$qbar,
+    std.error = sqrt(pooled$t),
+    df = pooled$df,
+    p.value = 2 * pt(abs(pooled$qbar / sqrt(pooled$t)), df = pooled$df, lower.tail = FALSE),
+    ci.lower = lower_ci,
+    ci.upper = upper_ci
+  )
+}
+
+
+# apply across ages
+ages <- c(0, 2, 4)
+pooled_age <- bind_rows(
+  lapply(ages, function(a) pool_emtrends_at_age(emtrends_list_clean, a))
+)
+
+saveRDS(pooled_age, file = "Results/behavioral/age_interaction/yp_family_conflict_age_emtrends.Rds") 
+
+```
+
+Plot
+
+```{r}
+
+plot <- ggplot(pooled_age, aes(x = age, y = estimate)) +
+  geom_line(color = "darkred", size = 1) +              
+  geom_point(size = 3, color = "black") +              
+  geom_errorbar(aes(ymin = ci.lower, ymax = ci.upper), 
+                width = 0.2,                             
+                color = "black") +
+  scale_x_continuous(breaks = c(0, 2, 4),
+                     labels = c("9/10", "11/12", "13/14")) +      
+  scale_y_continuous(limits = c(-0.5, 0.5)) +   # <- Set same limits for all plots
+  labs(
+    title = str_wrap("Effect of age 9/10 youth report family conflict on BAS Reward Responsiveness with Age", width = 40),
+    x = "Age (years)",
+    y = "Pooled Estimate (95% CI)"
+  ) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "gray40", size = 0.8) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    axis.title = element_text()
+  )
+
+plot
+
+ggsave(plot,file="Plots/yp_family_conflict_emtrends.png")
+
+ggsave("Plots/yp_family_conflict_emtrends.svg", , plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+

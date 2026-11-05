@@ -1,0 +1,84 @@
+---
+title: "R1_FDR_neural_models"
+output: html_document
+date: "2026-08-31"
+---
+
+```{r}
+
+library(tidyverse)
+
+rm(list = ls())
+```
+
+```{r}
+nacc_antic <- readRDS("Results/neural/main_models/Nacc_antic_MIDqc_adversity_3lvl_tidy.Rds")
+
+caudate_antic <- readRDS("Results/neural/main_models/caudate_antic_MIDqc_adversity_3lvl_tidy.Rds")
+
+putamen_antic <- readRDS("Results/neural/main_models/putamen_antic_MIDqc_adversity_3lvl_tidy.Rds")
+
+nacc_rresp <- readRDS("Results/neural/main_models/Nacc_rresp_MIDqc_adversity_3lvl_tidy.Rds")
+
+caudate_rresp <- readRDS("Results/neural/main_models/caudate_rresp_MIDqc_adversity_3lvl_tidy.Rds")
+
+putamen_rresp <- readRDS("Results/neural/main_models/putamen_rresp_MIDqc_adversity_3lvl_tidy.Rds")
+```
+
+
+```{r}
+
+add_meta <- function(df, roi, contrast) {
+  df %>%
+    mutate(
+      ROI = roi,
+      contrast = contrast
+    )
+}
+
+all_models <- bind_rows(
+  add_meta(nacc_antic,    "NAcc",    "anticipation"),
+  add_meta(caudate_antic, "Caudate", "anticipation"),
+  add_meta(putamen_antic, "Putamen", "anticipation"),
+  add_meta(nacc_rresp,    "NAcc",    "receipt"),
+  add_meta(caudate_rresp, "Caudate", "receipt"),
+  add_meta(putamen_rresp, "Putamen", "receipt")
+)
+
+all_models
+
+```
+
+```{r}
+adversity_terms <- c(
+  "cg_psych",
+  "ses_dis_nsafety",
+  "primary_cg_lack_supp",
+  "second_cg_lack_supp",
+  "yp_family_conflict",
+  "cg_sub_use_bio_sep",
+  "family_anger_arg",
+  "family_aggression",
+  "trauma_exposure",
+  "lack_supervision"
+)
+
+adversity_fdr <- all_models %>%
+  filter(term %in% adversity_terms) %>%
+  group_by(term, contrast) %>%   # <-- key change
+  mutate(p_fdr = p.adjust(p.value, method = "BH")) %>%
+  ungroup()
+
+
+
+```
+
+# adjust code for each adversity factor
+
+```{r}
+adversity_fdr %>%
+  filter(term == "lack_supervision") %>%
+  select(term, ROI, contrast, p.value, p_fdr)
+
+```
+

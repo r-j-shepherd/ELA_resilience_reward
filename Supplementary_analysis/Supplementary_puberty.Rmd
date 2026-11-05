@@ -1,0 +1,168 @@
+---
+title: "Supplementary_puberty"
+author: "Ryan Shepherd"
+date: "2025-09-15"
+output: html_document
+---
+
+```{r setup, include=FALSE, load packages}
+
+library(tidyverse)
+library(mice)
+library(lme4)
+library(ggplot2)
+library(viridis)
+library(broom.mixed)
+library(ggeffects)
+
+rm(list = ls())
+
+```
+
+1. Load cleaned data
+
+```{r load data and convert time to continuous}
+
+rresp_male <- readRDS("Data/Clean_data/data_for_model_rresp_male.rds") 
+
+rresp_female <- readRDS("Data/Clean_data/data_for_model_rresp_female.rds")
+
+
+convert_age <- function(df) {
+  df$age <- dplyr::recode(df$eventname,
+                           "baseline_year_1_arm_1" = 0,
+                           "2_year_follow_up_y_arm_1" = 2,
+                           "4_year_follow_up_y_arm_1" = 4)
+  df$age_sq <- df$age^2
+  
+  df$age_log <- log(df$age + 1)
+  return(df)
+}
+
+rename_adversity_factors <- function(df) {
+ 
+  df <- df %>%
+  rename(primary_cg_lack_supp = cg2_lack_support,
+         second_cg_lack_supp = cg1_lack_support)
+  
+  return(df)
+}
+
+
+rresp_male <- lapply(rresp_male, convert_age)
+rresp_female <- lapply(rresp_female, convert_age)
+
+rresp_male <- lapply(rresp_male, rename_adversity_factors)
+rresp_female <- lapply(rresp_female, rename_adversity_factors)
+```
+
+```{r}
+
+fit_mod <- function(df) {
+  model <- lmer(rew_resp_modified ~ race_ethnicity + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + pds_youth +
+                (1 + age | subjectkey) + (1 | family_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+# male model
+
+mod_male <- lapply(rresp_male, fit_mod)
+pooled_male <- mod_male %>% as.mira() %>% pool()
+summary(pooled_male)                               
+
+results_male <- broom.mixed::tidy(pooled_male, conf.int = TRUE)
+
+saveRDS(mod_male, file = "Results/puberty/puberty_sensitivity_male.Rds") 
+
+# female model
+
+mod_female <- lapply(rresp_female, fit_mod)
+pooled_female <- mod_female %>% as.mira() %>% pool()
+results_female <- broom.mixed::tidy(pooled_female, conf.int = TRUE)
+
+saveRDS(mod_female, file = "Results/puberty/puberty_sensitivity_female.Rds")
+
+```
+
+# Plots
+
+```{r forest plots}
+
+
+tidy <- function(df) {
+  new_df <- df %>%
+  mutate(term = case_match(term,
+                       "pds_youth" ~ "Pubertal Development Scale", 
+                       "race_ethnicityBlack" ~ "Race-ethnicity (Black)",
+                       "race_ethnicityHispanic" ~ "Race-ethnicity (Hispanic)",
+                       "race_ethnicityAsian" ~ "Race-ethnicity (Asian)",
+                       "race_ethnicityOther" ~ "Race-ethnicity (Other)",
+                       "cg_psych" ~ "Caregiver Psychopathology",        
+                       "ses_dis_nsafety" ~ "Socioeconomic Disadvantage and Neighborhood Safety",     
+                       "second_cg_lack_supp" ~ "Lack of Support from Secondary Caregiver",   
+                       "primary_cg_lack_supp" ~ "Lack of Support from Primary Caregiver",      
+                       "yp_family_conflict" ~ "Youth Report of Family Conflict",     
+                       "cg_sub_use_bio_sep" ~ "Caregiver Substance Use and Biological Parent Separation",   
+                       "family_anger_arg" ~ "Family Anger and Arguments",    
+                       "family_aggression" ~ "Family Aggression",   
+                       "trauma_exposure" ~ "Trauma Exposure",      
+                       "lack_supervision" ~ "Lack of Supervision",
+                       "pos_school_env" ~ "Positive School Environment at age 9/10",
+                       "ps_behav" ~ "Prosocial Behaviour at age 9/10",
+                       .default = term)) %>%
+    filter(term %in% c("Caregiver Psychopathology", "Socioeconomic Disadvantage and Neighborhood Safety", "Lack of Support from Secondary Caregiver", "Lack of Support from Primary Caregiver","Youth Report of Family Conflict", "Caregiver Substance Use and Biological Parent Separation","Family Anger and Arguments","Family Aggression","Trauma Exposure", "Lack of Supervision", "Pubertal Development Scale")) %>% 
+  mutate(term = fct_relevel(term, "Caregiver Psychopathology", "Socioeconomic Disadvantage and Neighborhood Safety", "Caregiver Substance Use and Biological Parent Separation", "Youth Report of Family Conflict", "Family Aggression","Family Anger and Arguments","Trauma Exposure", "Lack of Supervision", "Lack of Support from Secondary Caregiver", "Lack of Support from Primary Caregiver", "Pubertal Development Scale")) %>%
+  mutate(significance = case_when(
+    p.value < 0.001 ~ "p < 0.001",
+    p.value < 0.05  ~ "p < 0.05",
+    TRUE            ~ "p > 0.05"
+  ))
+  return(new_df)
+}
+
+male <- tidy(results_male)
+female <- tidy(results_female)
+
+plot <- ggplot(male, aes(x = estimate, y = term, colour = significance)) +
+  geom_point(size = 1.5) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "BAS Reward Responsiveness (Male)", x = "Estimate", y = "Predictor") +
+    theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 12, margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8))  +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  labs(y = NULL) +
+  xlim(-1.5, 1)
+
+ggsave(plot,file="C:/Users/d91569rs/OneDrive - The University of Manchester/Studies 1-3/Study_1/Study_1/revisions/Plots/pds_male.png")
+
+
+plot <- ggplot(female, aes(x = estimate, y = term, colour = significance)) +
+  geom_point(size = 1.5) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "BAS Reward Responsiveness (Female)", x = "Estimate", y = "Predictor") +
+    theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 12, margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8))  +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  labs(y = NULL) +
+  xlim(-1.5, 1)
+
+ggsave(plot,file="Plots/pds_female.png")
+```

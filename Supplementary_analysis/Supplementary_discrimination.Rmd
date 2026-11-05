@@ -1,0 +1,332 @@
+---
+title: "supplementary_discrimination"
+author: "Ryan Shepherd"
+date: "2025-02-10"
+output: html_document
+---
+
+```{r setup}
+
+library(tidyverse)
+library(mice)
+library(lme4)
+library(broom.mixed)
+library(lmerTest)
+library(car)
+library(ggplot2)
+library(viridis)
+library(glue)
+
+rm(list = ls())
+
+# Set path
+abcd_fld <- Sys.getenv("abcd_fld")
+
+```
+
+
+
+## Load cleaned data 
+
+```{r load data}
+
+fmri_mid <- readRDS("Data/fmri.Rds")
+
+bas_rresp <-  readRDS("Data/bas.Rds")
+
+discrimination <- glue("{abcd_fld}/culture-environment/ce_y_dm.csv") %>% read.csv() %>%
+  dplyr::select(src_subject_id, eventname, dim_y_ss_mean) %>%
+  rename(subjectkey = src_subject_id,
+         discrimination = dim_y_ss_mean) %>%
+  filter(eventname == "2_year_follow_up_y_arm_1") %>%
+  select(-eventname)
+
+
+```
+
+```{r}
+combine_data <- function(df1, df2) {
+  
+ combined_data <- df1 %>%
+    left_join(df2, by = "subjectkey")  
+
+  return(combined_data)  
+  
+}
+
+mid <- lapply(fmri_mid, function(df2) combine_data(discrimination, df2))
+bas <- lapply(bas_rresp, function(df2) combine_data(discrimination, df2))
+```
+
+
+
+## add discrimination to models 
+
+```{r models}
+
+# BAS Reward Responsiveness
+
+model_bas <-  function(df) {
+  model <- lmer(rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 + age | subjectkey) + (1 | family_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(bas, model_bas) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/bas_rresp_disc.Rds")
+
+
+
+```
+
+
+```{r}
+
+## Anticipatory neural models
+
+model_antic_nacc <- function(df) {
+  model <- lmer(accumbens_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(mid, model_antic_nacc) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/nacc_antic_disc.Rds")
+
+model_antic_caudate <- function(df) {
+  model <- lmer(caudate_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(mid, model_antic_caudate) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/caudate_antic_disc.Rds")
+
+model_antic_putamen <- function(df) {
+  model <- lmer(putamen_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(mid, model_antic_putamen) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/putamen_antic_disc.Rds")
+
+
+```
+
+
+```{r}
+
+## Consummatory neural models
+
+model_cons_nacc <- function(df) {
+  model <- lmer(accumbens_rresp ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(mid, model_cons_nacc) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/nacc_cons_disc.Rds")
+
+model_cons_caudate <- function(df) {
+  model <- lmer(caudate_rresp ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(mid, model_cons_caudate) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/caudate_cons_disc.Rds")
+
+model_cons_putamen <- function(df) {
+  model <- lmer(putamen_rresp ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + discrimination +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+mod <- lapply(mid, model_cons_putamen) 
+pooled <- mod %>% as.mira() %>% pool()
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+saveRDS(results_tidy, file = "Results/discrimination/putamen_cons_disc.Rds")
+
+
+```
+
+
+# Tidy results for plotting 
+
+```{r}
+
+rm(list = ls())
+
+bas <- readRDS("Results/discrimination/bas_rresp_disc.Rds")
+antic_nacc <- readRDS("Results/discrimination/nacc_antic_disc.Rds")
+antic_caudate <- readRDS("Results/discrimination/caudate_antic_disc.Rds")
+antic_putamen <- readRDS("Results/discrimination/putamen_antic_disc.Rds")
+cons_nacc <- readRDS("Results/discrimination/nacc_cons_disc.Rds")
+cons_caudate <- readRDS("Results/discrimination/caudate_cons_disc.Rds")
+cons_putamen <- readRDS("Results/discrimination/putamen_cons_disc.Rds")
+
+
+# function to tidy data NOTE - R replaced the recode() function with case_match()
+
+
+tidy <- function(df) {
+  new_df <- df %>%
+  mutate(term = case_match(term,
+                       "discrimination" ~ "Perceived Racial Discrimination",
+                       "race_ethnicityBlack" ~ "Race-ethnicity (Black)",
+                       "race_ethnicityHispanic" ~ "Race-ethnicity (Hispanic)",
+                       "race_ethnicityAsian" ~ "Race-ethnicity (Asian)",
+                       "race_ethnicityOther" ~ "Race-ethnicity (Other)",
+                       "cg_psych" ~ "Caregiver Psychopathology",        
+                       "ses_dis_nsafety" ~ "Socioeconomic Disadvantage and Neighborhood Safety",     
+                       "second_cg_lack_supp" ~ "Lack of Support from Secondary Caregiver",   
+                       "primary_cg_lack_supp" ~ "Lack of Support from Primary Caregiver",      
+                       "yp_family_conflict" ~ "Youth Report of Family Conflict",     
+                       "cg_sub_use_bio_sep" ~ "Caregiver Substance Use and Biological Parent Separation",   
+                       "family_anger_arg" ~ "Family Anger and Arguments",    
+                       "family_aggression" ~ "Family Aggression",   
+                       "trauma_exposure" ~ "Trauma Exposure",      
+                       "lack_supervision" ~ "Lack of Supervision", .default = term)) %>%
+    
+    filter(term %in% c("Race-ethnicity (Black)", "Race-ethnicity (Hispanic)", "Race-ethnicity (Asian)", "Race-ethnicity (Other)","Perceived Racial Discrimination", "Caregiver Psychopathology", "Socioeconomic Disadvantage and Neighborhood Safety", "Lack of Support from Secondary Caregiver", "Lack of Support from Primary Caregiver","Youth Report of Family Conflict", "Caregiver Substance Use and Biological Parent Separation","Family Anger and Arguments","Family Aggression","Trauma Exposure", "Lack of Supervision")) %>% 
+    
+  mutate(term = fct_relevel(term, "Race-ethnicity (Black)", "Race-ethnicity (Hispanic)", "Race-ethnicity (Asian)", "Race-ethnicity (Other)", "Caregiver Psychopathology", "Socioeconomic Disadvantage and Neighborhood Safety", "Caregiver Substance Use and Biological Parent Separation", "Youth Report of Family Conflict", "Family Aggression","Family Anger and Arguments","Trauma Exposure", "Lack of Supervision", "Lack of Support from Secondary Caregiver", "Lack of Support from Primary Caregiver", "Perceived Racial Discrimination")) %>%
+    
+  mutate(significance = case_when(
+    p.value < 0.001 ~ "p < 0.001",
+    p.value < 0.05  ~ "p < 0.05",
+    TRUE            ~ "p > 0.05"
+  ))
+  return(new_df)
+}
+
+
+bas <- tidy(bas)
+antic_nacc <- tidy(antic_nacc) %>% mutate(model = "Nucleus Accumbens")
+antic_caudate <- tidy(antic_caudate) %>% mutate(model = "Caudate Nucleus")
+antic_putamen <- tidy(antic_putamen) %>% mutate(model = "Putamen")
+cons_nacc <- tidy(cons_nacc) %>% mutate(model = "Nucleus Accumbens")
+cons_caudate <- tidy(cons_caudate) %>% mutate(model = "Caudate Nucleus")
+cons_putamen <- tidy(cons_putamen) %>% mutate(model = "Putamen")
+
+
+```
+
+## Make plots
+
+```{r plots}
+
+# BAS Reward Responsiveness
+
+plot <- ggplot(bas, aes(x = estimate, y = term, colour = significance)) +
+  geom_point(size = 1.5) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "BAS Reward Responsiveness", x = "Estimate", y = "Predictor", color = "Significance") +
+  theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 12, margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8))  +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+   xlim(-1, 1)
+
+ggsave(plot,file="Plots/bas_rresp_discrimination.png")
+
+
+# MID Anticipatory
+
+combined_rantic <- bind_rows(antic_nacc, antic_caudate, antic_putamen)
+
+plot <- ggplot(combined_rantic, aes(y = term, x = estimate, color = significance, shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Striatal activation during anticipatory reward response",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.05)
+
+ggsave(plot,file="Plots/striatum_anticipatory_discrimination.png")
+
+
+
+# MID Consummatory
+
+combined_cons <- bind_rows(cons_nacc, cons_caudate, cons_putamen)
+
+plot <- ggplot(combined_cons, aes(y = term, x = estimate, color = significance, shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Striatal activation during consummatory reward response",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.055)
+
+ggsave(plot,file="Plots/striatum_consummatory_discrimination.png")
+```
+
+

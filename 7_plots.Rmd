@@ -1,0 +1,359 @@
+---
+title: "7_plots"
+output: html_document
+---
+
+The following script uses the pooled, tidied results from "6_mlm_models.Rmd" to create forest plots to visualize adversity factor associations
+
+```{r setup}
+library(tidyverse)
+library(mice)
+library(lme4)
+library(ggplot2)
+library(viridis)
+library(broom.mixed)
+library(ggeffects)
+library(svglite)
+
+
+rm(list = ls())
+```
+
+
+## load models
+
+
+```{r}
+
+BAS_adversity <- readRDS("BAS_adversity_rs_tidy.Rds")
+BAS_resilience <- readRDS("BAS_resilience_rs_tidy.Rds")
+
+antic_Nacc_adversity <- readRDS("Nacc_antic_MIDqc_adversity_3lvl_tidy.Rds")
+antic_Nacc_resilience <- readRDS("Nacc_antic_MIDqc_resilience_3lvl_tidy.Rds")
+
+antic_Caudate_adversity <- readRDS("Caudate_antic_MIDqc_adversity_3lvl_tidy.Rds")
+antic_Caudate_resilience <- readRDS("Caudate_antic_MIDqc_resilience_3lvl_tidy.Rds")
+
+antic_Putamen_adversity <- readRDS("Putamen_antic_MIDqc_adversity_3lvl_tidy.Rds")
+antic_Putamen_resilience <- readRDS("Putamen_antic_MIDqc_resilience_3lvl_tidy.Rds")
+
+
+cons_Nacc_adversity <- readRDS("Nacc_rresp_MIDqc_adversity_3lvl_tidy.Rds")
+cons_Nacc_resilience <- readRDS("Nacc_rresp_MIDqc_resilience_3lvl_tidy.Rds")
+
+cons_Caudate_adversity <- readRDS("Caudate_rresp_MIDqc_adversity_3lvl_tidy.Rds")
+cons_Caudate_resilience <- readRDS("Caudate_rresp_MIDqc_resilience_3lvl_tidy.Rds")
+
+cons_Putamen_adversity <- readRDS("Putamen_rresp_MIDqc_adversity_3lvl_tidy.Rds")
+cons_Putamen_resilience <- readRDS("Putamen_rresp_MIDqc_resilience_3lvl_tidy.Rds")
+
+```
+
+
+## Function to clean results tables (and filter for adversity fcators only)
+
+```{r function to prepare models for plotting}
+
+
+
+tidy <- function(df) {
+  new_df <- df %>%
+  mutate(term = case_match(term,
+                       "race_ethnicityBlack" ~ "Race-ethnicity (Black)",
+                       "race_ethnicityHispanic" ~ "Race-ethnicity (Hispanic)",
+                       "race_ethnicityAsian" ~ "Race-ethnicity (Asian)",
+                       "race_ethnicityOther" ~ "Race-ethnicity (Other)",
+                       "cg_psych" ~ "Caregiver Psychopathology",        
+                       "ses_dis_nsafety" ~ "Socioeconomic Disadvantage and Neighborhood Safety",     
+                       "second_cg_lack_supp" ~ "Lack of Support from Secondary Caregiver",   
+                       "primary_cg_lack_supp" ~ "Lack of Support from Primary Caregiver",      
+                       "yp_family_conflict" ~ "Youth Report of Family Conflict",     
+                       "cg_sub_use_bio_sep" ~ "Caregiver Substance Use and Biological Parent Separation",   
+                       "family_anger_arg" ~ "Family Anger and Arguments",    
+                       "family_aggression" ~ "Family Aggression",   
+                       "trauma_exposure" ~ "Trauma Exposure",      
+                       "lack_supervision" ~ "Lack of Supervision",
+                       "pos_school_env" ~ "Positive School Environment at age 9/10",
+                       "ps_behav" ~ "Prosocial Behaviour at age 9/10",
+                       "eventname.L" ~ "Time (linear)",      
+                       "eventname.Q" ~ "Time (quadratic)",
+                       "sexFemale" ~ "Sex (female)", .default = term)) %>%
+    filter(term %in% c("Caregiver Psychopathology", "Socioeconomic Disadvantage and Neighborhood Safety", "Lack of Support from Secondary Caregiver", "Lack of Support from Primary Caregiver","Youth Report of Family Conflict", "Caregiver Substance Use and Biological Parent Separation","Family Anger and Arguments","Family Aggression","Trauma Exposure", "Lack of Supervision", "Positive School Environment at age 9/10", "Prosocial Behaviour at age 9/10")) %>% 
+  mutate(term = fct_relevel(term, "Sex (female)", "Race-ethnicity (Black)", "Race-ethnicity (Hispanic)", "Race-ethnicity (Asian)", "Race-ethnicity (Other)", "Positive School Environment at age 9/10", "Prosocial Behaviour at age 9/10", "Caregiver Psychopathology", "Socioeconomic Disadvantage and Neighborhood Safety", "Caregiver Substance Use and Biological Parent Separation", "Youth Report of Family Conflict", "Family Aggression","Family Anger and Arguments","Trauma Exposure", "Lack of Supervision", "Lack of Support from Secondary Caregiver", "Lack of Support from Primary Caregiver")) %>%
+  mutate(significance = case_when(
+    p.value < 0.001 ~ "p < 0.001",
+    p.value < 0.05  ~ "p < 0.05",
+    TRUE            ~ "p > 0.05"
+  ))
+  return(new_df)
+}
+```
+
+
+```{r}
+
+BAS_adversity <- tidy(BAS_adversity)
+BAS_resilience <- tidy(BAS_resilience)
+
+
+antic_Nacc_adversity <- tidy(antic_Nacc_adversity) %>% mutate(model = "Nucleus Accumbens")
+antic_Nacc_resilience <- tidy(antic_Nacc_resilience) %>% mutate(model = "Nucleus Accumbens")
+
+antic_Caudate_adversity <- tidy(antic_Caudate_adversity) %>% mutate(model = "Caudate Nucleus")
+antic_Caudate_resilience <- tidy(antic_Caudate_resilience) %>% mutate(model = "Caudate Nucleus")
+
+antic_Putamen_adversity <- tidy(antic_Putamen_adversity) %>% mutate(model = "Putamen")
+antic_Putamen_resilience <- tidy(antic_Putamen_resilience) %>% mutate(model = "Putamen")
+
+
+cons_Nacc_adversity <- tidy(cons_Nacc_adversity) %>% mutate(model = "Nucleus Accumbens")
+cons_Nacc_resilience <- tidy(cons_Nacc_resilience) %>% mutate(model = "Nucleus Accumbens")
+
+cons_Caudate_adversity <- tidy(cons_Caudate_adversity) %>% mutate(model = "Caudate Nucleus")
+cons_Caudate_resilience <- tidy(cons_Caudate_resilience) %>% mutate(model = "Caudate Nucleus")
+
+cons_Putamen_adversity <- tidy(cons_Putamen_adversity) %>% mutate(model = "Putamen")
+cons_Putamen_resilience <- tidy(cons_Putamen_resilience) %>% mutate(model = "Putamen")
+
+```
+
+
+## BAS Plots  
+
+```{r plot}
+
+## Adversity
+
+plot <- ggplot(BAS_adversity, aes(x = estimate, y = term, colour = "black")) +
+  geom_point(size = 1.5) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 Adversity and BAS Reward Responsiveness", x = "Estimate", y = "Predictor", color = "Significance") +
+  theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 12, margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8))  +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+   xlim(-0.5, 0.5)
+
+ggsave(plot,file="Plots/BAS_Adversity.png")
+
+ggsave("Plots/BAS_Adversity.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+
+## Resilience
+
+plot <- ggplot(BAS_resilience, aes(x = estimate, y = term, colour = "black")) +
+  geom_point(size = 1.5) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 Resilience and BAS Reward Responsiveness", x = "Estimate", y = "Predictor", color = "Significance") +
+  theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold", size = 12, margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8))  +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+   xlim(-1, 1)
+
+ggsave(plot,file="Plots/BAS_Resilience.png", width = 7, height = 3)
+
+ggsave("Plots/BAS_Resilience.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+
+## MID Anticipatory neural models plot
+
+```{r}
+
+## Adversity
+
+combined_rantic_adv <- bind_rows(antic_Nacc_adversity, antic_Caudate_adversity, antic_Putamen_adversity) %>%
+  mutate(phase = "Anticipatory")
+
+plot <- ggplot(combined_rantic_adv, aes(y = term, x = estimate, color = "black", shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 adversity and striatal anticipatory reward activation",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.05)
+
+ggsave(plot,file="Plots/antic_Striatum_adversity.png")
+
+ggsave("Plots/Striatum_antic_adversity.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+## Resilience
+
+combined_rantic_res <- bind_rows(antic_Nacc_resilience, antic_Caudate_resilience, antic_Putamen_resilience) %>%
+  mutate(phase = "Anticipatory")
+
+plot <- ggplot(combined_rantic_res, aes(y = term, x = estimate, color = significance, shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 Resilience and striatal anticipatory reward activation",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.05)
+
+ggsave(plot,file="Plots/Striatum_antic_resilience.png")
+
+ggsave("Plots/Striatum_resilience.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+## MID Consummatory neural models plot
+
+```{r}
+
+## Adversity
+
+combined_cons_adv <- bind_rows(cons_Nacc_adversity, cons_Caudate_adversity, cons_Putamen_adversity) %>%
+  mutate(phase = "Consummatory")
+
+plot <- ggplot(combined_cons_adv, aes(y = term, x = estimate, color = significance, shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 adversity and striatal consummatory reward activation",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.05)
+
+ggsave(plot,file="Plots/Striatum_cons_adversity.png")
+
+ggsave("Plots/Striatum_adversity.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+## Resilience
+
+combined_cons_res <- bind_rows(cons_Nacc_resilience, cons_Caudate_resilience, cons_Putamen_resilience) %>%
+  mutate(phase = "Consummatory")
+
+plot <- ggplot(combined_cons_res, aes(y = term, x = estimate, color = significance, shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 Resilience and striatal consummatory reward activation",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.05)
+
+ggsave(plot,file="Plots/Striatum_cons_resilience.png")
+
+ggsave("Plots/Striatum_resilience.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+
+## combined anticipatory and consummatory plot
+
+```{r adversity}
+
+adversity_mid <- bind_rows(combined_rantic_adv, combined_cons_adv)
+
+plot <- ggplot(adversity_mid, aes(x = estimate, y = term, colour = "black", shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 adversity and striatal reward responsiveness",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.03, 0.03) +
+   facet_wrap(~ phase) + 
+  theme(strip.text = element_text(color = "white")) +
+  labs(y = NULL)
+
+ggsave(plot,file="Plots/adversity_striatum_all.png")
+
+ggsave("Plots/adversity_striatum_all.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+```
+
+```{r adversity}
+
+resilience_mid <- bind_rows(combined_rantic_res, combined_cons_res)
+
+plot <- ggplot(resilience_mid, aes(x = estimate, y = term, colour = significance, shape = model)) +
+  geom_point(size = 1.5, position = position_dodge(width = 0.4)) +
+  geom_errorbarh(aes(xmin = conf.low, xmax = conf.high),
+                 height = 0.2, position = position_dodge(width = 0.4)) +
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(title = "Age 9/10 resilience and striatal reward responsiveness",
+       y = "Predictor", x = "Estimate",
+       color = "Significance", shape = "Region") + theme_light() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 12, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10),
+    axis.text.y = element_text(size = 8)) +
+  scale_color_manual(values = c("p < 0.001" = "navy", 
+                                "p < 0.05" = "magenta", 
+                                "p > 0.05" = "grey")) +
+  xlim(-0.05, 0.05) +
+   facet_wrap(~ phase) + 
+  theme(strip.text = element_text(color = "white")) +
+  labs(y = NULL)
+
+ggsave(plot,file="Plots/resilience_striatum_all.png")
+
+ggsave("Plots/resilience_striatum_all.svg", plot = plot, width = 7, height = 7, device = svglite::svglite)
+
+
+```
+
+

@@ -1,0 +1,458 @@
+---
+title: "R1_sex_adversity_interactions"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(mice)
+library(lme4)
+library(broom.mixed)
+library(lmerTest)
+library(car)
+library(mitml)
+library(miceadds)
+library(emmeans)
+library(mitools)
+library(ggplot2)
+
+rm(list = ls())
+```
+
+```{r load data}
+
+bas_rresp <- readRDS("Data/bas.Rds")
+class(bas_rresp) <- "mitml.list"
+
+```
+
+
+### BAS Reward Responsiveness - Sex/adversity interactions ###
+
+### DEPRIVATION ###
+
+# Lack of supervision
+
+```{r}
+
+model_null <- with(bas_rresp, lmer
+  (rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*lack_supervision +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+lack_supervision_interaction <- testModels(model_alt, model_null, method = "D1")
+
+lack_supervision_interaction
+
+
+saveRDS(lack_supervision_interaction, file = "Results/behavioral/sex_interaction/lack_supervision.Rds") 
+
+lack_supervision_interaction <- readRDS("Results/behavioral/sex_interaction/lack_supervision.Rds")
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)    
+```
+
+
+```{r}
+AIC_null <- sapply(model_null$analyses, AIC)
+BIC_null <- sapply(model_null$analyses, BIC)
+
+AIC_null
+BIC_null
+```
+
+
+```{r}
+fit_comparison <- do.call(rbind, lapply(seq_along(model_null$analyses), function(i) {
+  
+  null <- model_null$analyses[[i]]
+  alt  <- model_alt$analyses[[i]]
+  
+  data.frame(
+    imputation = i,
+    logLik_null = as.numeric(logLik(null)),
+    logLik_alt = as.numeric(logLik(alt)),
+    delta_logLik = as.numeric(logLik(alt) - logLik(null)),
+    AIC_null = AIC(null),
+    AIC_alt = AIC(alt),
+    delta_AIC = AIC(alt) - AIC(null),
+    BIC_null = BIC(null),
+    BIC_alt = BIC(alt),
+    delta_BIC = BIC(alt) - BIC(null)
+  )
+}))
+
+fit_comparison
+
+null <- model_null$analyses[[1]]
+```
+
+
+
+# Lack of primary caregiver support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*primary_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+primary_cg_lack_supp_interaction <- testModels(model_alt, model_null, method = "D1")
+
+primary_cg_lack_supp_interaction
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+saveRDS(primary_cg_lack_supp_interaction, file = "Results/behavioral/sex_interaction/primary_cg_lack_supp.Rds") 
+
+primary_cg_lack_supp_interaction <- readRDS("Results/behavioral/sex_interaction/primary_cg_lack_supp.Rds")
+```
+
+
+# Lack of secondary caregiver support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*second_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+second_cg_lack_supp_interaction <- testModels(model_alt, model_null, method = "D1")
+
+second_cg_lack_supp_interaction
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+saveRDS(second_cg_lack_supp_interaction, file = "Results/behavioral/sex_interaction/second_cg_lack_supp.Rds") 
+
+second_cg_lack_supp_interaction <- readRDS("Results/behavioral/sex_interaction/second_cg_lack_supp.Rds")
+```
+
+
+
+# Youth report of family conflict
+
+```{r}
+
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*yp_family_conflict +
+                (1 + age | subjectkey) + (1 | family_id),
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+yp_family_conflict_interaction <- testModels(model_alt, model_null, method = "D1")
+
+yp_family_conflict_interaction
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+saveRDS(yp_family_conflict_interaction, file = "Results/behavioral/sex_interaction/yp_family_conflict.Rds") 
+
+yp_family_conflict_interaction <- readRDS("Results/behavioral/sex_interaction/yp_family_conflict.Rds")
+```
+
+
+
+
+## Linear combination of beta coefficients (using emtrends)
+
+Lack of supervision
+
+```{r}
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*lack_supervision +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/sex_interaction/lack_supervision_model.Rds") 
+
+```
+
+```{r}
+
+modlist <- readRDS("Results/behavioral/sex_interaction/lack_supervision_model.Rds")
+
+get_emtrends <- function(model) {
+  emtrends(model, ~ sex, var = "lack_supervision", at = list(sex = c("Male", "Female"))) %>%
+    as.data.frame()
+}
+
+clean_emtrends <- function(df) {
+  df %>%
+    rename(estimate = lack_supervision.trend) %>%
+    select(sex, estimate, SE)
+}
+
+emtrends_list <- lapply(modlist, get_emtrends)
+emtrends_list_clean <- lapply(emtrends_list, clean_emtrends)
+
+pool_emtrends_at_sex <- function(emtrends_list, target_sex) {
+  est_se <- lapply(emtrends_list, function(df) {
+    row <- df %>% filter(trimws(sex) == target_sex)
+    if (nrow(row) != 1) stop(paste("Problem with sex:", target_sex))
+    list(est = row$estimate, se = row$SE)
+  })
+
+  estimates <- sapply(est_se, `[[`, "est")
+  ses <- sapply(est_se, `[[`, "se")
+
+  pooled <- pool.scalar(Q = estimates, U = ses^2)
+
+  t_crit <- qt(0.975, df = pooled$df)
+  lower_ci <- pooled$qbar - t_crit * sqrt(pooled$t)
+  upper_ci <- pooled$qbar + t_crit * sqrt(pooled$t)
+
+  data.frame(
+    sex = target_sex,
+    estimate = pooled$qbar,
+    std.error = sqrt(pooled$t),
+    df = pooled$df,
+    p.value = 2 * pt(abs(pooled$qbar / sqrt(pooled$t)), df = pooled$df, lower.tail = FALSE),
+    ci.lower = lower_ci,
+    ci.upper = upper_ci
+  )
+}
+
+sexes <- c("Male", "Female")
+pooled_sex <- bind_rows(
+  lapply(sexes, function(a) pool_emtrends_at_sex(emtrends_list_clean, a))
+)
+
+saveRDS(pooled_sex, file = "Results/behavioral/sex_interaction/lack_supervision_emtrends.Rds")
+
+
+```
+
+cg1
+
+```{r}
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*primary_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/sex_interaction/primary_cg_lack_supp_model.Rds") 
+
+```
+
+cg2
+
+```{r}
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*second_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/sex_interaction/second_cg_lack_supp_model.Rds") 
+
+```
+
+
+yp fam conflict
+
+```{r}
+
+fit_model <- function(df) {
+  
+  model <- lmer(
+   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq + sex*yp_family_conflict +
+                (1 + age | subjectkey) + (1 | family_id),
+  data = df,
+  REML = FALSE,
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+)
+
+  
+  return(model)
+}
+
+
+
+
+modlist <- lapply(bas_rresp, fit_model) 
+
+pooled <- modlist %>% as.mira() %>% pool()
+
+results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
+
+saveRDS(modlist, file = "Results/behavioral/sex_interaction/yp_family_conflict_model.Rds") 
+
+```
+
+```{r}
+
+modlist <- readRDS("Results/behavioral/sex_interaction/yp_family_conflict_model.Rds")
+
+get_emtrends <- function(model) {
+  emtrends(model, ~ sex, var = "yp_family_conflict", at = list(sex = c("Male", "Female"))) %>%
+    as.data.frame()
+}
+
+clean_emtrends <- function(df) {
+  df %>%
+    rename(estimate = yp_family_conflict.trend) %>%
+    select(sex, estimate, SE)
+}
+
+emtrends_list <- lapply(modlist, get_emtrends)
+emtrends_list_clean <- lapply(emtrends_list, clean_emtrends)
+
+pool_emtrends_at_sex <- function(emtrends_list, target_sex) {
+  est_se <- lapply(emtrends_list, function(df) {
+    row <- df %>% filter(trimws(sex) == target_sex)
+    if (nrow(row) != 1) stop(paste("Problem with sex:", target_sex))
+    list(est = row$estimate, se = row$SE)
+  })
+
+  estimates <- sapply(est_se, `[[`, "est")
+  ses <- sapply(est_se, `[[`, "se")
+
+  pooled <- pool.scalar(Q = estimates, U = ses^2)
+
+  t_crit <- qt(0.975, df = pooled$df)
+  lower_ci <- pooled$qbar - t_crit * sqrt(pooled$t)
+  upper_ci <- pooled$qbar + t_crit * sqrt(pooled$t)
+
+  data.frame(
+    sex = target_sex,
+    estimate = pooled$qbar,
+    std.error = sqrt(pooled$t),
+    df = pooled$df,
+    p.value = 2 * pt(abs(pooled$qbar / sqrt(pooled$t)), df = pooled$df, lower.tail = FALSE),
+    ci.lower = lower_ci,
+    ci.upper = upper_ci
+  )
+}
+
+sexes <- c("Male", "Female")
+pooled_sex <- bind_rows(
+  lapply(sexes, function(a) pool_emtrends_at_sex(emtrends_list_clean, a))
+)
+
+saveRDS(pooled_sex, file = "Data/Results/sex_interaction/yp_family_conflict_emtrends.Rds")
+
+
+```

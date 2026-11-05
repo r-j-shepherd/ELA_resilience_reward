@@ -1,0 +1,345 @@
+---
+title: "01_data_preprocessing"
+author: "Ryan Shepherd"
+date: "2024-09-11"
+output: html_document
+---
+This script is adapted from that provided by Brieant et al.(2023), with some additions and changes (specifically scripts "01_pull_variables" and "02_data_cleaning". Tabulated ABCD data is pulled from baseline, which also includes individuals from the same household (as this is later accounted for in subsequent analyses). In this script, ABCD data are pulled, combined to one dataset, and recoded in line with the original protocol.
+
+```{r set_libraries, include=FALSE, tidy=TRUE}
+
+library(tidyverse)
+library(glue)
+library(car)
+library(psych)
+
+rm(list = ls())
+
+#Set path for raw data files
+abcd_fld <- Sys.getenv("abcd_fld")
+```
+
+```{r}
+#Read in family substance use summary scores
+fhx <- glue("{abcd_fld}/mental-health/mh_p_fhx.csv") %>% read.csv() %>%
+ filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname, famhx_ss_fath_prob_alc_p,famhx_ss_moth_prob_alc_p,famhx_ss_fath_prob_dg_p,
+                famhx_ss_moth_prob_dg_p)
+
+
+```
+
+
+```{r}
+##Read in parent demographics
+pdemo <- glue("{abcd_fld}/abcd-general/abcd_p_demo.csv") %>% read.csv() %>%
+ filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id,eventname,
+                demo_prim,demo_prnt_marital_v2,demo_prnt_ed_v2,demo_prtnr_ed_v2,demo_comb_income_v2,
+                demo_fam_exp1_v2,demo_fam_exp2_v2,demo_fam_exp3_v2,demo_fam_exp4_v2,demo_fam_exp5_v2,
+                demo_fam_exp6_v2,demo_fam_exp7_v2)
+```
+
+```{r}
+##Read in CRPBI 
+crpbi <- glue("{abcd_fld}/culture-environment/ce_y_crpbi.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname, crpbi_parent1_y,crpbi_caregiver12_y,crpbi_parent2_y,crpbi_caregiver13_y,
+                crpbi_parent3_y, crpbi_caregiver14_y,crpbi_parent4_y,crpbi_caregiver15_y,crpbi_parent5_y,
+                crpbi_caregiver16_y)
+```
+
+```{r}
+##Read in parent report family environment scale 
+fes02 <- glue("{abcd_fld}/culture-environment/ce_p_fes.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname, fam_enviro1_p,fam_enviro2r_p,fam_enviro3_p,fam_enviro4r_p,fam_enviro5_p,
+                fam_enviro6_p,fam_enviro7r_p,fam_enviro8_p,fam_enviro9r_p)
+
+#Note: NAs for many items (below), unclear why. Omitted these variables.
+#Fes_31_p,fes_32_p,fes_51_p,fes_52r_p,fes_1_p,fes_72r_p,fes_2r_p,fes_81_p,fes_19_p,fes_29r_p,fes_39_p,fes_42_p,fes_49r_p,fes_59_p,fes_69_p, fes_79r_p,fes_9_p
+```
+
+```{r}
+##Read in youth report family environment scale
+fes01 <- glue("{abcd_fld}/culture-environment/ce_y_fes.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id,eventname,
+                fes_youth_q1,fes_youth_q2,fes_youth_q3,fes_youth_q4,fes_youth_q5,fes_youth_q6,
+                fes_youth_q7,fes_youth_q8,fes_youth_q9)
+```
+
+```{r}
+##Read in ksads trauma, parent interview 
+ptsd <- glue("{abcd_fld}/mental-health/mh_p_ksads_ptsd.csv") %>% read.csv() %>%
+ filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname,
+                ksads_ptsd_raw_754_p,ksads_ptsd_raw_755_p,ksads_ptsd_raw_756_p,ksads_ptsd_raw_757_p,
+                ksads_ptsd_raw_758_p,ksads_ptsd_raw_759_p,ksads_ptsd_raw_760_p,ksads_ptsd_raw_761_p,
+                ksads_ptsd_raw_762_p,ksads_ptsd_raw_763_p,ksads_ptsd_raw_764_p,ksads_ptsd_raw_765_p,
+                ksads_ptsd_raw_766_p,ksads_ptsd_raw_767_p,ksads_ptsd_raw_768_p,ksads_ptsd_raw_769_p,
+                ksads_ptsd_raw_770_p)
+```
+
+```{r}
+##Read in parental monitoring 
+pmq <- glue("{abcd_fld}/culture-environment/ce_y_pm.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname,
+                parent_monitor_q1_y,parent_monitor_q2_y,parent_monitor_q3_y,parent_monitor_q4_y,
+                parent_monitor_q5_y)
+```
+
+```{r}
+#Read in neighborhood safety and crime, parents 
+pnscss <- glue("{abcd_fld}/culture-environment/ce_p_nsc.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname, nsc_p_ss_mean_3_items) 
+```
+
+```{r}
+##Read in neighborhood safety and crime, youth 
+ynsc <- glue("{abcd_fld}/culture-environment/ce_y_nsc.csv") %>% read.csv() %>%
+ filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname, neighborhood_crime_y)
+```
+
+```{r}
+##Read in ASR (parent psychopathology) 
+asr <- glue("{abcd_fld}/mental-health/mh_p_asr.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname,
+                asr_scr_anxdisord_r,asr_scr_somaticpr_r,asr_scr_depress_r,asr_scr_avoidant_r,
+                asr_scr_adhd_r,asr_scr_antisocial_r,asr_scr_inattention_r,asr_scr_hyperactive_r)
+```
+
+```{r}
+#Read in ADI data file 
+ADI <- glue("{abcd_fld}/linked-external-data/led_l_adi.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>% 
+  dplyr::select(src_subject_id, eventname, reshist_addr1_adi_wsum)
+
+```
+
+```{r merge all data frames}
+ELAdata <- full_join(fhx, asr)%>%
+  full_join(pdemo) %>%
+  full_join(crpbi) %>%
+  full_join(fes01)%>%
+  full_join(fes02)%>%
+  full_join(ptsd)%>%
+  full_join(pmq)%>%
+  full_join(pnscss)%>%
+  full_join(ynsc)%>%
+  full_join(ADI)
+
+
+```
+
+```{r}
+ELAdata <- ELAdata %>% rename(subjectkey = src_subject_id)
+
+write.csv(ELAdata, file = "Data/ELAdata_combined.csv", row.names = FALSE)
+
+ELAdata <- read.csv("Data/ELAdata_combined.csv")
+
+str(ELAdata)
+```
+
+
+```{r}
+##Read in and merge demographics
+demo1 <- glue("{abcd_fld}/abcd-general/abcd_y_lt.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  dplyr::select(src_subject_id, interview_age)
+
+demo2 <- glue("{abcd_fld}/gender-identity-sexual-health/gish_p_gi.csv") %>% read.csv() %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  dplyr::select(src_subject_id, demo_sex_v2)
+
+demo <- merge(demo1, demo2, by = "src_subject_id") %>% rename(subjectkey = src_subject_id, sex = demo_sex_v2)
+
+
+ELAdata <- merge(ELAdata, demo, by = "subjectkey") 
+
+```
+
+```{r convert variables to numeric and recode missing values}
+
+ELAdata <- ELAdata %>%
+  mutate_at(vars(3:81), as.numeric)
+
+#Replace 777 and 999 as na
+
+ELAdata <- ELAdata %>%
+  mutate_at(vars(3:81), ~replace(., . == 777 | . == 999, NA))
+
+#confirm that there are no 777 999 values
+has_777_or_999 <- any(ELAdata == 777 | ELAdata == 999, na.rm = TRUE)
+if (has_777_or_999) {
+  print("The dataframe contains values of 777 or 999.")
+} else {
+  print("The dataframe does not contain values of 777 or 999.")
+}
+
+
+str(ELAdata)
+```
+
+
+```{r recode primary caregiver and marital status variables}
+#recode demo prim, 1=bio separation from parent, 0=lives with bio parents
+
+ELAdata$demo_prim_biosep <- ifelse(ELAdata$demo_prim >= 3,1,0)
+
+#recode parent marital status, coding 1 and 6 are now = 0 (no parental separation) otherwise 1 (parental separation)
+
+ELAdata$demo_parent_sep <- ifelse(ELAdata$demo_prnt_marital_v2 == 1 |    ELAdata$demo_prnt_marital_v2 == 6, 0, 1)
+
+#remove original variables
+ELAdata <- ELAdata %>%
+   dplyr::select(-demo_prim, -demo_prnt_marital_v2)
+
+
+```
+
+
+
+
+```{r recode education variable so that it is polytomous w/fewer categories - repeated for both NOCB and non NOCB datasets}
+#NDA coding: 0 = Never attended/Kindergarten only; 1 = 1st grade; 2 = 2nd grade; 3 = 3rd grade; 4 = 4th grade; 5 = 5th grade; 6 = 6th grade; 7 = 7th grade; 8 = 8th grade; 9 = 9th grade; 10 = 10th grade; 11 = 11th grade; 12 = 12th grade; 13 = High school graduate; 14 = GED or equivalent; 15 = Some college; 16 = Associate degree: Occupational; 17 = Associate degree: Academic Program; 18 = Bachelor's degree (ex. BA); 19 = Master's degree (ex. MA); 20 = Professional School degree (ex. MD); 21 = Doctoral degree
+
+#We are following DEAP coding: 1: < HS Diploma | 2:HS Diploma/GED | 3: some college | 4: Bachelor |5: Post Graduate Degree
+
+ELAdata <- ELAdata %>%
+  mutate(demo_prnt_ed_v2 = case_when(demo_prnt_ed_v2 == 0 ~ 1,
+                          demo_prnt_ed_v2 == 1 ~ 1,
+                          demo_prnt_ed_v2 == 2 ~ 1,
+                          demo_prnt_ed_v2 == 3 ~ 1,
+                          demo_prnt_ed_v2 == 4 ~ 1,
+                          demo_prnt_ed_v2 == 5 ~ 1,
+                          demo_prnt_ed_v2 == 6 ~ 1,
+                          demo_prnt_ed_v2 == 7 ~ 1,
+                          demo_prnt_ed_v2 == 8 ~ 1,
+                          demo_prnt_ed_v2 == 9 ~ 1,
+                          demo_prnt_ed_v2 == 10 ~ 1,
+                          demo_prnt_ed_v2 == 11 ~ 1,
+                          demo_prnt_ed_v2 == 12 ~ 1,
+                          demo_prnt_ed_v2 == 13 ~ 2,
+                          demo_prnt_ed_v2 == 14 ~ 2,
+                          demo_prnt_ed_v2 == 15 ~ 3,
+                          demo_prnt_ed_v2 == 16 ~ 3,
+                          demo_prnt_ed_v2 == 17 ~ 3,
+                          demo_prnt_ed_v2 == 18 ~ 4,
+                          demo_prnt_ed_v2 == 19 ~ 5,
+                          demo_prnt_ed_v2 == 20 ~ 5,
+                          demo_prnt_ed_v2 == 21 ~ 5,
+                          TRUE ~ NA_real_))
+ELAdata <- ELAdata %>%
+   mutate(demo_prtnr_ed_v2 = case_when(demo_prtnr_ed_v2 == 0 ~ 1,
+                          demo_prtnr_ed_v2 == 1 ~ 1,
+                          demo_prtnr_ed_v2 == 2 ~ 1,
+                          demo_prtnr_ed_v2 == 3 ~ 1,
+                          demo_prtnr_ed_v2 == 4 ~ 1,
+                          demo_prtnr_ed_v2 == 5 ~ 1,
+                          demo_prtnr_ed_v2 == 6 ~ 1,
+                          demo_prtnr_ed_v2 == 7 ~ 1,
+                          demo_prtnr_ed_v2 == 8 ~ 1,
+                          demo_prtnr_ed_v2 == 9 ~ 1,
+                          demo_prtnr_ed_v2 == 10 ~ 1,
+                          demo_prtnr_ed_v2 == 11 ~ 1,
+                          demo_prtnr_ed_v2 == 12 ~ 1,
+                          demo_prtnr_ed_v2 == 13 ~ 2,
+                          demo_prtnr_ed_v2 == 14 ~ 2,
+                          demo_prtnr_ed_v2 == 15 ~ 3,
+                          demo_prtnr_ed_v2 == 16 ~ 3,
+                          demo_prtnr_ed_v2 == 17 ~ 3,
+                          demo_prtnr_ed_v2 == 18 ~ 4,
+                          demo_prtnr_ed_v2 == 19 ~ 5,
+                          demo_prtnr_ed_v2 == 20 ~ 5,
+                          demo_prtnr_ed_v2 == 21 ~ 5,
+                          TRUE ~ NA_real_))
+
+#take max value between caregivers
+ELAdata$demo_prnt_ed_v2 <- pmax(ELAdata$demo_prnt_ed_v2, ELAdata$demo_prtnr_ed_v2,
+                                      na.rm = TRUE)
+
+#remove partner ed variable, no longer needed
+ELAdata <- ELAdata %>% 
+  dplyr::select(-demo_prtnr_ed_v2)
+
+
+write.csv(ELAdata, file = "Data/ELAdata_combined.csv", row.names = FALSE)
+
+ELAdata <- read.csv("Data/ELAdata_combined.csv")
+
+
+```
+
+
+```{r reverse code variables}
+##recoding variables so that higher values reflect greater adversity for all variables
+
+
+
+##crpbi variables
+ELAdata$crpbi_parent1_y = recode(ELAdata$crpbi_parent1_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_parent2_y = recode(ELAdata$crpbi_parent2_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_parent3_y = recode(ELAdata$crpbi_parent3_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_parent4_y = recode(ELAdata$crpbi_parent4_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_parent5_y = recode(ELAdata$crpbi_parent5_y, "1=3; 2=2; 3=1")
+
+ELAdata$crpbi_caregiver12_y = recode(ELAdata$crpbi_caregiver12_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_caregiver13_y = recode(ELAdata$crpbi_caregiver13_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_caregiver14_y = recode(ELAdata$crpbi_caregiver14_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_caregiver15_y = recode(ELAdata$crpbi_caregiver15_y, "1=3; 2=2; 3=1")
+ELAdata$crpbi_caregiver16_y = recode(ELAdata$crpbi_caregiver16_y, "1=3; 2=2; 3=1")
+
+####income and education variables
+
+#demo_comb_income_v2 ranges from 1 to 10, 1 is lowest income category and 10 is highest
+ELAdata$demo_comb_income_v2 = recode(ELAdata$demo_comb_income_v2, "1=10; 2=9; 3=8; 4=7; 5=6; 6=5; 7=4; 8=3; 9=2; 10=1")
+
+#reverse code polytomous version of parent education variable
+ELAdata$demo_prnt_ed_v2 = recode(ELAdata$demo_prnt_ed_v2, "1=5; 2=4; 3=3; 4=2; 5=1")
+
+##parental monitoring variables, original coding is 1 = Never; 2 = Almost Never; 3 = Sometimes; 4 = Often; 5 = Always or Almost Always (higher values = less adversity)
+
+ELAdata$parent_monitor_q1_y = recode(ELAdata$parent_monitor_q1_y, "1=5; 2=4; 3=3; 4=2; 5=1")
+ELAdata$parent_monitor_q2_y = recode(ELAdata$parent_monitor_q2_y, "1=5; 2=4; 3=3; 4=2; 5=1")
+ELAdata$parent_monitor_q3_y = recode(ELAdata$parent_monitor_q3_y, "1=5; 2=4; 3=3; 4=2; 5=1")
+ELAdata$parent_monitor_q4_y = recode(ELAdata$parent_monitor_q4_y, "1=5; 2=4; 3=3; 4=2; 5=1")
+ELAdata$parent_monitor_q5_y = recode(ELAdata$parent_monitor_q5_y, "1=5; 2=4; 3=3; 4=2; 5=1")
+
+####neighborhood variables
+
+#neighborhood_crime_y ranges 1-5
+ELAdata$neighborhood_crime_y = recode(ELAdata$neighborhood_crime_y, "1=5; 2=4; 3=3; 4=2; 5=1")
+
+#nsc_p_ss_mean_3_items is continuous, multiply by -1 to reverse code
+ELAdata$nsc_p_ss_mean_3_items = (ELAdata$nsc_p_ss_mean_3_items) * -1
+
+
+write.csv(ELAdata, file = "Data/ELAdata_for_MICE.csv", row.names = FALSE)  
+ELAdata_clean <- read.csv("Data/ELAdata_for_MICE.csv")
+
+str(ELAdata_clean)
+
+```
+
+
+
+
+```{r check degree of missing data across variables}
+
+ELA_var_sums_NA <- as.data.frame(sapply(ELAdata_clean, function(x) sum(is.na(x))))
+ELA_var_sums_NA
+
+write.csv(ELA_var_sums_NA, file = "Data/ELAdata_clean_missingdata.csv", row.names = TRUE)
+
+ELAdat_nona <- na.omit(ELAdata_clean)
+# 8550 observations with complete data
+
+```
+
+

@@ -1,0 +1,143 @@
+---
+title: "3_get_factor_scores"
+author: "Ryan Shepherd"
+date: "2024-09-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(mice)
+
+rm(list = ls())
+
+```
+
+```{r load data}
+
+ELAdata <- readRDS("Data/Multiple_imputation/ELAdata_imputed.rds")
+
+ELAdata_split <- complete(ELAdata, "long") %>%      # convert mids object to a list of datasets
+  split(., .$.imp)
+
+
+factor_loadings <- read.csv("Data/Multiple_imputation/factor_loadings.csv", row.names = 1)
+
+```
+
+```{r create functions to aggregate data according to Brieant et al. (2023)}
+
+aggregate_vars <- function(df) {
+  
+#aggregating items 758-760 as they are all related to witnessing violence
+df$ksads_ptsd_raw_758_759_760 <- df$ksads_ptsd_raw_758_p + df$ksads_ptsd_raw_759_p + df$ksads_ptsd_raw_760_p
+df$ksads_ptsd_raw_758_759_760 <-df$ksads_ptsd_raw_758_759_760/2
+df$ksads_ptsd_raw_758_759_760 <- ceiling(df$ksads_ptsd_raw_758_759_760)
+
+#aggregating items 761-765 as they are all related to experiencing extreme physical threats/violence
+df$ksads_ptsd_raw_761_to_765 <- df$ksads_ptsd_raw_761_p + df$ksads_ptsd_raw_762_p + df$ksads_ptsd_raw_763_p + df$ksads_ptsd_raw_764_p + df$ksads_ptsd_raw_765_p
+df$ksads_ptsd_raw_761_to_765 <- df$ksads_ptsd_raw_761_to_765/2
+df$ksads_ptsd_raw_761_to_765 <- ceiling(df$ksads_ptsd_raw_761_to_765)
+
+#aggregating items 767-769 as they are all related to sexual abuse
+df$ksads_ptsd_raw_767_768_769 <- df$ksads_ptsd_raw_767_p + df$ksads_ptsd_raw_768_p+ df$ksads_ptsd_raw_769_p
+df$ksads_ptsd_raw_767_768_769 <-df$ksads_ptsd_raw_767_768_769/2
+df$ksads_ptsd_raw_767_768_769 <- ceiling(df$ksads_ptsd_raw_767_768_769)
+
+#demo_fam_exp1, _exp2 & _exp3, and _exp6 & _exp7 are highly correlated. Post aggregation exp1-3, 4 and 5 are all highly correlated
+df$demo_fam_exp1_5_v2 <- df$demo_fam_exp1_v2 + df$demo_fam_exp2_v2 + df$demo_fam_exp3_v2 + df$demo_fam_exp4_v2 + df$demo_fam_exp5_v2
+
+df$demo_fam_exp1_5_v2 <- df$demo_fam_exp1_5_v2/2
+df$demo_fam_exp1_5_v2 <- ceiling(df$demo_fam_exp1_5_v2)
+df$demo_fam_exp6_7_v2 <- df$demo_fam_exp6_v2 + df$demo_fam_exp7_v2
+
+#post aggregation famhx_ss_moth_prob_alc_p and famhx_ss_moth_prob_dg_p are too highly correlated 
+df$famhx_ss_moth_prob_alc_dg <-df$famhx_ss_moth_prob_alc_p + df$famhx_ss_moth_prob_dg_p
+  
+return(df)
+}
+
+
+remove_old_vars <- function(df) {
+  df <- df %>% 
+    dplyr::select(-ksads_ptsd_raw_758_p, -ksads_ptsd_raw_759_p, -ksads_ptsd_raw_760_p,
+           -ksads_ptsd_raw_761_p, -ksads_ptsd_raw_762_p, -ksads_ptsd_raw_763_p,
+           -ksads_ptsd_raw_764_p, -ksads_ptsd_raw_765_p, -ksads_ptsd_raw_767_p, 
+           -ksads_ptsd_raw_768_p, -ksads_ptsd_raw_769_p,
+           -demo_fam_exp1_v2, -demo_fam_exp2_v2, -demo_fam_exp3_v2,  
+           -demo_fam_exp4_v2, -demo_fam_exp5_v2,
+           -demo_fam_exp6_v2, -demo_fam_exp7_v2,
+           -asr_scr_inattention_r, -asr_scr_hyperactive_r,
+           -famhx_ss_moth_prob_dg_p,-famhx_ss_moth_prob_alc_p)
+  
+  return(df)
+}
+
+```
+
+
+```{r aggregate data}
+
+ELAdata_aggregated <- lapply(ELAdata_split, aggregate_vars) %>%
+  lapply(., remove_old_vars)
+  
+saveRDS(ELAdata_aggregated, file = "Data/imp_data_aggregated.rds")
+
+ELAdata_aggregated <- readRDS("Data/imp_data_aggregated.rds")
+
+```
+
+
+```{r calculate factor scores}
+
+# reorder variables to match factor loadings order
+
+non_relevant_vars <- c(".imp", ".id", "subjectkey", "eventname", "interview_age", "sex" )
+
+var_order <- c(rownames(factor_loadings), non_relevant_vars)
+
+reorder_vars <- function(df) {
+  df <- df[, var_order, drop = FALSE]
+  return(df)
+}
+
+ELAdata_reordered <- lapply(ELAdata_aggregated, reorder_vars)
+
+get_factor_scores <- function(df) {
+  as.matrix(df) %*% as.matrix(factor_loadings)
+  
+  return(df)
+}
+
+# define function to get factor scores by multiplying data by factor loadings matrix
+
+get_factor_scores <- function(df) {
+  
+  factor_data <- df[, rownames(factor_loadings), drop = FALSE]   # drop non relevant variables
+  
+  factor_scores <- as.matrix(factor_data) %*% as.matrix(factor_loadings)
+  
+  factor_scores_df <- as.data.frame(factor_scores)
+  colnames(factor_scores_df) <- paste0("Factor", 1:ncol(factor_scores_df))  # Naming factor score columns
+
+  ELAdata_fs <- cbind(df[, non_relevant_vars, drop = FALSE], factor_scores_df)
+  
+  return(ELAdata_fs)
+}
+
+# Apply the function to get factor scores for each imputed dataset
+ELAdata_fs <- lapply(ELAdata_reordered, get_factor_scores)
+
+```
+
+
+```{r save outputs}
+
+saveRDS(ELAdata_fs, file = "Data/ELAdata_factor_scores.rds")
+
+ELAdata_fs <- readRDS("Data/ELAdata_factor_scores.rds") # check saved correctly
+
+
+```
+

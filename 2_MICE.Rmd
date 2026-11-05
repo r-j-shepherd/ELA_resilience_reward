@@ -1,0 +1,96 @@
+---
+title: "2_MICE"
+author: "Ryan Shepherd"
+date: "2024-09-24"
+output: html_document
+---
+
+This script uses the MICE package to generate 10 imputed datasets using the random forest multiple imputation by chained equations method. Models can be fitted to these datasets and results combined.
+
+```{r load packages}
+library(tidyverse)
+library(mice)
+library(tictoc)
+
+rm(list = ls())
+```
+
+1. Load data and assess missingness
+
+```{r load preprocessed ELA data and assess missingness}
+
+ELAdata <-  read.csv("Data/ELAdata_for_MICE.csv")
+
+str(ELAdata)
+
+ELA_var_sums_NA <- as.data.frame(sapply(ELAdata, function(x) sum(is.na(x)))) # check missing data
+ELA_var_sums_NA
+
+missingness <- ELA_var_sums_NA %>%
+  mutate(perc_missing = sapply(ELAdata, function(x) sum(is.na(x)) / nrow(ELAdata) * 100))
+
+average_missingness <- mean(missingness$perc_missing)
+average_missingness
+# 1.53%
+
+ELAnona <- na.omit(ELAdata)
+perc_missing_cases <- 100 - (nrow(ELAnona)/nrow(ELAdata) * 100)
+perc_missing_cases
+# 27.96%
+
+```
+
+
+2. Set up MICE parameters and generate imputed datasets (these are stored in a "mids" type object)
+
+```{r set up imputation}
+
+init = mice(ELAdata, maxit=0) 
+
+meth = init$method
+meth[] <- "rf"                    # set imputation method to random forest due to presence of multiple variable types
+meth["subjectkey"] <- ""          # remove unnecessary variables from imputation
+meth["eventname"] <- ""
+
+
+predM = init$predictorMatrix
+predM[, "subjectkey"] <- 0        # remove unnecessary variables from the predictor matrix
+predM[, "eventname"] <- 0 
+
+tic()
+set.seed(161)
+imputed_data <- mice(ELAdata, method = meth, predictorMatrix = predM, m = 10, maxit = 20)
+toc()
+
+summary(imputed_data)
+imputed_data$imp$demo_comb_income_v2
+
+ELAdata_complete <- complete(imputed_data, 1) # provides one of the imputed data sets (change number to select another data set)
+ELAdata_complete_nona <- na.omit(ELAdata_complete) # should be no missing data
+
+saveRDS(imputed_data, file = "Data/ELAdata_imputed.rds") 
+ELAdata_imputed <- readRDS("Data/ELAdata_imputed.rds")
+
+```
+
+3. Evaluate imputation 
+
+```{r compare summary stats}
+
+observed_data <- summary(ELAdata)
+observed_data <- as.data.frame(t(observed_data))
+
+imputed_data <- summary(ELAdata_complete)
+imputed_data <- as.data.frame(t(imputed_data))
+
+
+```
+
+
+```{r plots to evaulate convergence}
+
+plot(ELAdata_imputed)
+
+```
+
+

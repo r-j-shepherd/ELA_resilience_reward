@@ -1,0 +1,371 @@
+---
+title: "create_datasets_for_mlm"
+author: "Ryan Shepherd"
+date: "2024-09-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(glue)
+library(lme4)
+library(ggplot2)
+library(mice)
+
+rm(list = ls())
+
+# Set path 
+abcd_fld <- Sys.getenv("abcd_fld")
+
+```
+
+## Create a template df with all subjectkeys and all timepoints (so every individual has 3 rows when merging variables later on - even if data is missing)
+```{r}
+
+subjectkeys <- glue("{abcd_fld}/abcd-general/abcd_y_lt.csv") %>% read.csv() %>% 
+  dplyr::select(src_subject_id, eventname) %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  rename(subjectkey = src_subject_id) 
+
+template <- subjectkeys %>%
+  distinct(subjectkey) %>% 
+  mutate(eventname = list(c("baseline_year_1_arm_1", 
+                          "2_year_follow_up_y_arm_1",
+                          "4_year_follow_up_y_arm_1"))) %>% 
+  unnest(eventname) %>%
+  mutate(eventname = factor(eventname, levels = c("baseline_year_1_arm_1", 
+                                               "2_year_follow_up_y_arm_1",
+                                               "4_year_follow_up_y_arm_1"), ordered = TRUE))
+
+str(template)
+```
+
+
+
+#### Load all data ####
+
+# ELA factor scores
+
+# Note: we found a labelling inconsistency for factors 3 and 4 in the original EFA loadings matrix. We therefore labelled these factors according to the content of the raw ABCD items: Factor 3 uses "crpbi_parent" items which correspond to youth report of primary caregiver, and Factor 4 uses "crpbi_caregiver" items which correspond to youth report of secondary caregiver.
+
+```{r}
+# Imputed adversity data (as a list)
+
+ELAdata_fs <- readRDS("Data/Multiple_imputation/ELAdata_factor_scores.rds") # contains factor scores, interview age, and sex
+
+# rename adversity factors for easier interpretation
+
+ELAdata <- lapply(ELAdata_fs, function(df) {
+ 
+  df_new <- df %>% rename(cg_psych = Factor1,
+                          ses_dis_nsafety = Factor2,
+                          primary_cg_lack_supp = Factor3,
+                          second_cg_lack_supp = Factor4,
+                          yp_family_conflict = Factor5,
+                          cg_sub_use_bio_sep = Factor6,
+                          family_anger_arg = Factor7,
+                          family_aggression = Factor8,
+                          trauma_exposure = Factor9,
+                          lack_supervision = Factor10
+                          )
+  
+  return(df_new)
+   
+}) 
+
+
+# scale adversity factor scores
+
+ELAdata <- lapply(ELAdata, function(df) {
+  df <- df %>%
+    mutate(across(
+      c(ses_dis_nsafety, primary_cg_lack_supp, 
+        second_cg_lack_supp, yp_family_conflict, cg_sub_use_bio_sep, 
+        family_anger_arg, family_aggression, trauma_exposure, 
+        lack_supervision, cg_psych), 
+      ~ as.vector(scale(.))
+    ))
+  
+  return(df)
+})
+
+```
+
+
+# Site and family id
+
+```{r}
+ids <- glue("{abcd_fld}/abcd-general/abcd_y_lt.csv") %>% read.csv() %>%  # get site and family id
+  dplyr::select(src_subject_id, eventname, rel_family_id, site_id_l) %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  rename(subjectkey = src_subject_id,
+         family_id = rel_family_id,
+         site_id = site_id_l) %>%
+  select(-eventname) %>%
+  mutate(family_id = factor(family_id)) %>%
+  mutate(site_id = factor(site_id))
+```
+
+
+# race-ethnicity
+
+```{r}
+# race ethnicity data
+
+race_ethnicity <- glue("{abcd_fld}/abcd-general/abcd_p_demo.csv")  %>% read.csv() %>% 
+  dplyr::select(src_subject_id, eventname, race_ethnicity) %>% 
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  mutate(
+    new_col = factor(race_ethnicity, 
+                       levels = c(1, 2, 3, 4, 5),
+                       labels = c("White", "Black", "Hispanic", "Asian", "Other"))) %>%
+      select(-race_ethnicity, -eventname) %>%
+  rename(subjectkey = src_subject_id,
+         race_ethnicity = new_col)
+```
+
+
+
+# BAS Reward Responsiveness
+
+```{r}
+# BIS/BAS scale data
+
+bisbas <- glue("{abcd_fld}/mental-health/mh_y_bisbas.csv") %>% read.csv()	%>%
+  dplyr::select(src_subject_id, eventname, bis_y_ss_bas_rr, bis_y_ss_bas_fs, bis_y_ss_bas_drive, bis_y_ss_bis_sum, bis_y_ss_bism_sum, bis_y_ss_basm_rr, bis_y_ss_basm_drive) %>%
+  
+  rename( rew_resp = bis_y_ss_bas_rr, 
+          fun_seeking = bis_y_ss_bas_fs,
+          drive = bis_y_ss_bas_drive,
+          bis = bis_y_ss_bis_sum,
+          bis_modified = bis_y_ss_bism_sum,
+          rew_resp_modified = bis_y_ss_basm_rr,
+          drive_modified = bis_y_ss_basm_drive,
+          subjectkey = src_subject_id
+  ) %>%
+  
+  mutate(eventname = factor(eventname, levels = c("baseline_year_1_arm_1",  
+                                               "2_year_follow_up_y_arm_1",
+                                               "4_year_follow_up_y_arm_1"), ordered = TRUE))
+
+bisbas <- left_join(template, bisbas, by = c("subjectkey", "eventname"))
+
+rew_resp <- bisbas %>% select(subjectkey, eventname, rew_resp_modified)
+```
+
+
+# Resilience factors
+
+```{r}
+# resilience factor data (positive school environment and prosocial behaviour at baseline)
+
+ps_behav <- glue("{abcd_fld}/culture-environment/ce_y_psb.csv") %>% read.csv() %>% 
+  # youth report of prosocial behavior
+  dplyr::select(src_subject_id, eventname, psb_y_ss_mean) %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  rename(subjectkey = src_subject_id,
+         ps_behav = psb_y_ss_mean) %>%
+  select(-eventname)
+  
+pos_school_env <- glue("{abcd_fld}/culture-environment/ce_y_srpf.csv") %>% read.csv() %>% 
+  # youth report of positive school environment
+  dplyr::select(src_subject_id, eventname, srpf_y_ss_ses) %>%
+  filter(eventname == "baseline_year_1_arm_1") %>%
+  rename(subjectkey = src_subject_id,
+         pos_school_env = srpf_y_ss_ses) %>%
+  select(-eventname)
+
+# merge and scale for regressions
+res_factors <- merge(ps_behav, pos_school_env, by = "subjectkey") %>% mutate(across(c(ps_behav, pos_school_env), ~ as.vector(scale(.))))
+```
+
+
+## Load fMRI data
+
+```{r Quality controlled and cleaned MID fMRI data}
+
+fmri <- readRDS("Data/Clean_data/fmri_qc.rds")
+
+fmri <- left_join(template, fmri, by = c("subjectkey", "eventname")) %>%
+  mutate(eventname = factor(eventname, levels = c("baseline_year_1_arm_1",  # change eventname to factor 
+                                               "2_year_follow_up_y_arm_1",
+                                               "4_year_follow_up_y_arm_1"), ordered = TRUE))
+
+```
+
+
+## For puberty supplementary analysis: load and tidy pubertal development data, and split into sex stratified samples
+
+```{r clean pubertal development data}
+
+# pubertal development (parent reported and youth reported)
+
+pds_parent <- glue("{abcd_fld}/physical-health/ph_p_pds.csv") %>% read.csv() %>% 
+  dplyr::select(src_subject_id, eventname, pubertal_sex_p,
+                pds_p_ss_male_category_2, pds_p_ss_female_category_2) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1")) %>%
+  rename(subjectkey = src_subject_id,
+         male_pds_parent = pds_p_ss_male_category_2,
+         female_pds_parent = pds_p_ss_female_category_2,
+         sex = pubertal_sex_p)
+
+
+pds_youth <- glue("{abcd_fld}/physical-health/ph_y_pds.csv") %>% read.csv() %>% 
+  dplyr::select(src_subject_id, eventname, 
+                pds_y_ss_female_category_2, pds_y_ss_male_cat_2) %>%
+  filter(eventname %in% c("baseline_year_1_arm_1", "2_year_follow_up_y_arm_1", "4_year_follow_up_y_arm_1")) %>%
+  rename(subjectkey = src_subject_id,
+         male_pds_youth = pds_y_ss_male_cat_2,
+         female_pds_youth = pds_y_ss_female_category_2,
+         )
+
+
+pds <- merge(pds_parent, pds_youth, by = c("subjectkey", "eventname")) %>%
+  mutate(eventname = factor(eventname, levels = c("baseline_year_1_arm_1",  # change eventname to factor 
+                                               "2_year_follow_up_y_arm_1",
+                                               "4_year_follow_up_y_arm_1"), ordered = TRUE)) %>%
+  mutate(across(c(male_pds_parent, male_pds_youth, female_pds_parent, female_pds_youth), ~ as.vector(scale(.))))
+
+pds <- left_join(template, pds, by = c("subjectkey", "eventname"))
+
+
+# split into male and female groups for BIS/BAS models
+
+male_subjectkeys <- pds %>%
+  filter(eventname == "baseline_year_1_arm_1", sex == 1) %>%
+  select(subjectkey)
+
+male_group <- pds %>% filter(subjectkey %in% male_subjectkeys$subjectkey) %>%
+  select(-sex, -female_pds_youth, -female_pds_parent) %>%
+  rename(pds_youth = male_pds_youth,
+         pds_parent = male_pds_parent)
+
+female_subjectkeys <- pds %>%
+  filter(eventname == "baseline_year_1_arm_1", sex == 2) %>%
+  select(subjectkey)
+
+female_group <- pds %>% filter(subjectkey %in% female_subjectkeys$subjectkey) %>%
+  select(-sex, -male_pds_youth, -male_pds_parent) %>%
+  rename(pds_youth = female_pds_youth,
+         pds_parent = female_pds_parent)
+
+# check available data (slightly more available for parent report)
+
+male_group_available_dat <- sapply(male_group, function(x) sum(!is.na(x)))
+male_group_available_dat
+
+female_group_available_dat <- sapply(female_group, function(x) sum(!is.na(x)))
+female_group_available_dat
+```
+
+
+
+For main models: prepare datasets for bisbas and MID BOLD responses linear mixed effects models
+
+
+# Define functions
+
+```{r}
+
+# function to combine covariate and BAS data with each imputed dataset
+
+combine_data <- function(df1, df2) {
+  
+ combined_data <- df1 %>%
+    left_join(df2, by = "subjectkey")  
+
+  return(combined_data)  
+  
+}
+
+# function to recode male and female
+
+convert_variables <- function(df) {
+  
+  df$subjectkey <- as.factor(df$subjectkey)
+  df$sex <- factor(df$sex, 
+                    levels = c(1, 2), 
+                    labels = c("Male", "Female"))
+  
+  return(df)
+  
+}
+
+
+# function to convert age/timepoint to continuous
+
+convert_age <- function(df) {
+  df$age <- dplyr::recode(df$eventname,
+                           "baseline_year_1_arm_1" = 0,
+                           "2_year_follow_up_y_arm_1" = 2,
+                           "4_year_follow_up_y_arm_1" = 4)
+  df$age_sq <- df$age^2
+  
+  df$age_log <- log(df$age + 1)
+  return(df)
+}
+```
+
+
+Create datasets for main behavioral and neural models
+
+```{r}
+
+# merge outcomes and non-adversity covariates
+
+modvars_fmri <- fmri %>%
+  left_join(ids, by = "subjectkey") %>%
+  left_join(race_ethnicity, by = "subjectkey") %>%
+  left_join(res_factors, by = "subjectkey")
+
+modvars_bas <- rew_resp %>%
+  left_join(ids, by = "subjectkey") %>%
+  left_join(race_ethnicity, by = "subjectkey") %>%
+  left_join(res_factors, by = "subjectkey")
+
+# recode sex 
+ELAdata <- lapply(ELAdata, convert_variables)
+
+# merge datasets
+fmri_for_model <- lapply(ELAdata, function(df2) combine_data(modvars_fmri, df2))
+bas_for_model <- lapply(ELAdata, function(df2) combine_data(modvars_bas, df2))
+
+# convert age
+bas_for_model_age_cont <- lapply(bas_for_model, convert_age)
+fmri_for_model_age_cont <- lapply(fmri_for_model, convert_age)
+
+
+saveRDS(bas_for_model_age_cont, file = "Data/Clean_data/bas.rds")  
+saveRDS(fmri_for_model_age_cont, file = "Data/Clean_data/fmri.rds")
+```
+
+
+For puberty supplementary models: prepare sex-stratified datasets
+
+```{r join datasets and convert covariates to factors}
+  
+male <- left_join(male_group, modvars_bas, by = c("subjectkey", "eventname")) %>% 
+  mutate(subjectkey = factor(subjectkey))
+
+female <- left_join(female_group, modvars_bas, by = c("subjectkey", "eventname")) %>% 
+  mutate(subjectkey = factor(subjectkey))
+
+# Combine data and convert age to continuous
+
+male <- lapply(ELAdata, function(df2) combine_data(male, df2))
+male_age_cont <- lapply(male, convert_age)
+
+female <- lapply(ELAdata, function(df2) combine_data(female, df2))
+female_age_cont <- lapply(female, convert_age)
+
+
+
+# save data for models
+saveRDS(male_age_cont, file = "Data/Clean_data/data_for_model_bas_male.rds")
+saveRDS(female_age_cont, file = "Data/Clean_data/data_for_model_bas_female.rds")
+
+```
+
+
+

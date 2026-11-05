@@ -1,0 +1,389 @@
+---
+title: "R1_Resilience_interactions"
+author: "Ryan Shepherd"
+date: "2026-09-02"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(mice)
+library(lme4)
+library(broom.mixed)
+library(lmerTest)
+library(car)
+library(mitml)
+library(miceadds)
+library(emmeans)
+library(mitools)
+library(ggplot2)
+
+rm(list = ls())
+```
+
+```{r load data}
+
+bas_rresp <- readRDS("Data/bas.Rds")
+class(bas_rresp) <- "mitml.list"
+
+```
+
+
+### BAS Reward Responsiveness - resilience/adversity interactions ###
+
+### PROSOCIAL BEHAVIOR ###
+
+# null model
+
+```{r}
+
+model_null <- with(bas_rresp, lmer
+  (rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+```
+
+# Lack of supervision 
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + age + age_sq + ps_behav*lack_supervision +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+ls_ps_behav_int <- testModels(model_alt, model_null, method = "D1")
+
+ls_ps_behav_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)                    
+```
+
+
+# Primary caregiver lack of support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + age + age_sq + ps_behav*primary_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+cg1_ps_behav_int <- testModels(model_alt, model_null, method = "D1")
+
+cg1_ps_behav_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+# Secondary caregiver lack of support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + age + age_sq + ps_behav*second_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+cg2_ps_behav_int <- testModels(model_alt, model_null, method = "D1")
+
+cg2_ps_behav_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+### POS SCHOOL ENV ###
+
+# null model
+
+```{r}
+
+model_null <- with(bas_rresp, lmer
+  (rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+
+
+```
+
+# Lack of supervision 
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + + pos_school_env + age + age_sq + pos_school_env*lack_supervision +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+ls_pos_school_env_int <- testModels(model_alt, model_null, method = "D1")
+
+ls_pos_school_env_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+
+# Primary caregiver lack of support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + age + age_sq + pos_school_env*primary_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+cg1_pos_school_env_int <- testModels(model_alt, model_null, method = "D1")
+
+cg1_pos_school_env_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+
+# Second caregiver lack of support
+
+```{r}
+
+model_alt <- with(bas_rresp, lmer(
+  rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
+    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + age + age_sq + pos_school_env*second_cg_lack_supp +
+                (1 + age | subjectkey) + (1 | family_id),
+  control = lmerControl(
+    optimizer = "bobyqa",
+    optCtrl = list(maxfun = 1e5)
+  )
+))
+
+cg2_pos_school_env_int <- testModels(model_alt, model_null, method = "D1")
+
+cg2_pos_school_env_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+
+
+
+
+
+### MID Reward Anticipation ###
+
+```{r}
+
+fmri <- readRDS("Data/fmri.Rds")
+class(fmri) <- "mitml.list"
+
+
+```
+
+
+# Pos school env
+
+# null model
+
+```{r}
+
+model_null <- with(fmri, lmer
+  (accumbens_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+
+
+```
+
+
+```{r}
+
+model_alt <- with(fmri, lmer
+  (accumbens_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + pos_school_env*lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)
+   )))
+
+nacc_pos_sch_int <- testModels(model_alt, model_null, method = "D1")
+
+nacc_pos_sch_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)    
+
+```
+
+```{r}
+
+model_null <- with(fmri, lmer
+  (putamen_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+
+
+```
+
+
+```{r}
+
+model_alt <- with(fmri, lmer
+  (putamen_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + pos_school_env + pos_school_env*lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)
+   )))
+
+put_pos_sch_int <- testModels(model_alt, model_null, method = "D1")
+
+put_pos_sch_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+
+# prosocial behavior
+
+# null model
+
+# nacc
+
+```{r}
+
+model_null <- with(fmri, lmer
+  (accumbens_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+
+```
+
+
+```{r}
+
+model_alt <- with(fmri, lmer
+  (accumbens_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + ps_behav*lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)
+   )))
+
+nacc_pos_sch_int <- testModels(model_alt, model_null, method = "D1")
+
+nacc_pos_sch_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+```
+
+# putamen
+
+```{r}
+
+model_null <- with(fmri, lmer
+  (putamen_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(
+   optimizer = "bobyqa",
+   optCtrl = list(maxfun = 1e5)
+   )))
+
+
+
+```
+
+
+```{r}
+
+model_alt <- with(fmri, lmer
+  (putamen_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + ps_behav + ps_behav*lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)
+   )))
+
+put_pos_sch_int <- testModels(model_alt, model_null, method = "D1")
+
+put_pos_sch_int
+
+testEstimates(model_alt, extra.pars = TRUE)
+est <- testEstimates(model_alt, extra.pars = TRUE)
+confint(est)
+
+
+```

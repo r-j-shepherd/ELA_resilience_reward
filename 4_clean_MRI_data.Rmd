@@ -1,0 +1,119 @@
+---
+title: "fmri_QC"
+author: "Ryan Shepherd"
+date: "2025-09-14"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(glue)
+library(lme4)
+library(ggplot2)
+library(mice)
+
+rm(list = ls())
+
+# Set path
+abcd_fld <- Sys.getenv("abcd_fld")
+
+```
+
+
+```{r}
+QC_inc <- glue("{abcd_fld}/imaging/mri_y_qc_incl.csv") %>% read.csv() %>%
+  select(src_subject_id, eventname, imgincl_mid_include) %>% rename(include = imgincl_mid_include, subjectkey = src_subject_id) %>%
+  filter(include == 1)
+
+QC_exc <- glue("{abcd_fld}/imaging/mri_y_qc_incl.csv") %>% read.csv() %>%
+  select(src_subject_id, eventname, imgincl_mid_include) %>% rename(include = imgincl_mid_include, subjectkey = src_subject_id) %>%
+  filter(include == 0)
+
+```
+
+
+```{r}
+# MID Reward positive vs. negative feedback - take average of both hemispheres
+fmri_mid_consummatory <- glue("{abcd_fld}/imaging/mri_y_tfmr_mid_rpvnf_aseg.csv") %>% read.csv() %>%
+  dplyr::select(src_subject_id, eventname, tfmri_ma_rpvnfb_b_scs_aalh, tfmri_ma_rpvnfb_b_scs_aarh, tfmri_ma_rpvnfb_b_scs_cdlh,
+                tfmri_ma_rpvnfb_b_scs_cdrh, tfmri_ma_rpvnfb_b_scs_ptlh, tfmri_ma_rpvnfb_b_scs_ptrh) %>%
+  rename(subjectkey = src_subject_id,
+         left_accumbens_beta = tfmri_ma_rpvnfb_b_scs_aalh,
+         right_accumbens_beta = tfmri_ma_rpvnfb_b_scs_aarh,
+         left_caudate_beta = tfmri_ma_rpvnfb_b_scs_cdlh,
+         right_caudate_beta = tfmri_ma_rpvnfb_b_scs_cdrh,
+         left_putamen_beta = tfmri_ma_rpvnfb_b_scs_ptlh,
+         right_putamen_beta = tfmri_ma_rpvnfb_b_scs_ptrh,
+         ) %>%
+  mutate(accumbens_rresp = rowMeans(cbind(left_accumbens_beta, right_accumbens_beta), na.rm = TRUE),
+         caudate_rresp = rowMeans(cbind(left_caudate_beta, right_caudate_beta), na.rm = TRUE),
+         putamen_rresp = rowMeans(cbind(left_putamen_beta, right_putamen_beta), na.rm = TRUE)) %>%
+  select(c(-left_accumbens_beta, -right_accumbens_beta, -left_caudate_beta,
+           -right_caudate_beta, -left_putamen_beta, -right_putamen_beta))
+         
+                
+# MID anticipating large reward vs neutral - take average of both hemispheres                
+fmri_mid_anticipatory <- glue("{abcd_fld}/imaging/mri_y_tfmr_mid_alrvn_aseg.csv") %>% read.csv() %>%
+  dplyr::select(src_subject_id, eventname, tfmri_ma_alrvn_b_scs_aalh, tfmri_ma_alrvn_b_scs_aarh, tfmri_ma_alrvn_b_scs_cdlh,
+                tfmri_ma_alrvn_b_scs_cdrh, tfmri_ma_alrvn_b_scs_ptlh, tfmri_ma_alrvn_b_scs_ptrh) %>%
+  rename(subjectkey = src_subject_id,
+         left_accumbens_beta = tfmri_ma_alrvn_b_scs_aalh,
+         right_accumbens_beta = tfmri_ma_alrvn_b_scs_aarh,
+         left_caudate_beta = tfmri_ma_alrvn_b_scs_cdlh,
+         right_caudate_beta = tfmri_ma_alrvn_b_scs_cdrh,
+         left_putamen_beta = tfmri_ma_alrvn_b_scs_ptlh,
+         right_putamen_beta = tfmri_ma_alrvn_b_scs_ptrh,
+         ) %>%
+  mutate(accumbens_antic = rowMeans(cbind(left_accumbens_beta, right_accumbens_beta), na.rm = TRUE),
+         caudate_antic = rowMeans(cbind(left_caudate_beta, right_caudate_beta), na.rm = TRUE),
+         putamen_antic = rowMeans(cbind(left_putamen_beta, right_putamen_beta), na.rm = TRUE)) %>%
+  select(c(-left_accumbens_beta, -right_accumbens_beta, -left_caudate_beta,
+           -right_caudate_beta, -left_putamen_beta, -right_putamen_beta))
+
+fmri <- merge(fmri_mid_consummatory, fmri_mid_anticipatory, by = c("subjectkey", "eventname"))  %>% na.omit()
+
+```
+
+
+
+```{r}
+fmri_qc_inc <- fmri %>%
+  inner_join(QC_inc, by = c("subjectkey", "eventname")) %>% 
+  select(-include)
+
+fmri_qc_exc <- fmri %>%
+  inner_join(QC_exc, by = c("subjectkey", "eventname")) %>% 
+  select(-include) 
+
+#fmri_qc_bl <- fmri %>%
+#  inner_join(QC, by = c("subjectkey", "eventname")) %>%
+#  filter(eventname == "4_year_follow_up_y_arm_1")
+
+# BL n = 9164
+# FU2 n = 6735
+# FU4 n = 2675
+
+
+
+```
+
+
+```{r}
+# number of participants excluded 
+# 1698 scans from 520 individuals were excluded based on quality control
+
+# number of unique subjects in fmri (n = 11074)
+totalids_fmri <- fmri %>% n_distinct(.$subjectkey)
+
+# number of unique subjects in QC (10554)
+totalids_qc_inc <- fmri_qc_inc %>% summarise(n_distinct(subjectkey))
+
+totalids_qc_exc <- fmri_qc_exc %>% summarise(n_distinct(subjectkey))
+```
+
+
+
+```{r}
+#saveRDS(fmri_qc_inc, file = "Data/Clean_data/fmri_qc.rds")
+```
+

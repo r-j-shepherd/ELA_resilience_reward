@@ -1,0 +1,610 @@
+---
+title: "6_mlm_models"
+output: html_document
+---
+
+```{r setup}
+library(tidyverse)
+library(mice)
+library(lme4)
+library(broom.mixed)
+library(lmerTest)
+library(car)
+
+rm(list = ls())
+```
+
+```{r load BAS data}
+
+bas_rresp <- readRDS("Data/bas.Rds") 
+
+```
+
+
+### BAS Reward Responsiveness resilience & ELA models (random slopes)
+
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(rew_resp_modified ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(rew_resp_modified ~ pos_school_env + ps_behav + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+model_adversity<- function(df) {
+  model <- lmer(rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(rew_resp_modified ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 + age | subjectkey) + (1 | family_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+```
+
+```{r run and pool models}
+
+mod_adversity <- lapply(bas_rresp, model_adversity)  
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(bas_rresp, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+
+saveRDS(mod_adversity, file = "BAS_adversity_rs.Rds") 
+
+saveRDS(results_adversity, file = "BAS_adversity_rs_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "BAS_resilience_rs.Rds") 
+
+saveRDS(results_resilience, file = "BAS_resilience_rs_tidy.Rds") 
+
+```
+
+
+```{r unadjusted models}
+
+adversity_unadjusted <- lapply(bas_rresp, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(bas_rresp, resilience_unadjusted)  
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "BAS_adversity_unadjusted_rs.Rds") 
+saveRDS(results_adversity_unadjusted, file = "BAS_adversity_unadjusted_rs_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "BAS_resilience_unadjusted_rs.Rds") 
+saveRDS(results_resilience_unadjusted, file = "BAS_resilience_unadjusted_rs_tidy.Rds") 
+
+```
+
+
+### MID Anticipatory Contrast adversity and resilience models (random intercepts)
+
+```{r load data}
+
+rm(list = ls())
+
+fmri_mid <- readRDS("Data/fmri.Rds")
+
+```
+
+
+
+# Anticipation
+
+# Nucleus Accumbens
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(accumbens_antic ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(accumbens_antic ~ pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+
+model_adversity<- function(df) {
+  model <- lmer(accumbens_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(accumbens_antic ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+```
+
+```{r run models}
+
+mod_adversity <- lapply(fmri_mid, model_adversity)  
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(fmri_mid, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+saveRDS(mod_adversity, file = "Nacc_antic_MIDqc_adversity_3lvl.Rds") 
+
+saveRDS(results_adversity, file = "Nacc_antic_MIDqc_adversity_3lvl_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "Nacc_antic_MIDqc_resilience_3lvl.Rds") 
+
+saveRDS(results_resilience, file = "Nacc_antic_MIDqc_resilience_3lvl_tidy.Rds") 
+
+
+## unadjusted models
+
+adversity_unadjusted <- lapply(fmri_mid, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(fmri_mid, resilience_unadjusted)  
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "Nacc_antic_MIDqc_adversityunadjusted_3lvl.Rds") 
+
+saveRDS(results_adversity_unadjusted, file = "Nacc_antic_MIDqc_adversityunadjusted_3lvl_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "Nacc_antic_MIDqc_resilienceunadjusted_3lvl.Rds") 
+
+saveRDS(results_resilience_unadjusted, file = "Nacc_antic_MIDqc_resilienceunadjusted_3lvl_tidy.Rds") 
+```
+
+
+
+# Caudate Nucleus
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(caudate_antic ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(caudate_antic ~ pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+model_adversity<- function(df) {
+  model <- lmer(caudate_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(caudate_antic ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+```
+
+```{r run models}
+
+mod_adversity <- lapply(fmri_mid, model_adversity)  
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(fmri_mid, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+saveRDS(mod_adversity, file = "Caudate_antic_MIDqc_adversity_3lvl.Rds") 
+ 
+saveRDS(results_adversity, file = "Caudate_antic_MIDqc_adversity_3lvl_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "Caudate_antic_MIDqc_resilience_3lvl.Rds") 
+
+saveRDS(results_resilience, file = "Caudate_antic_MIDqc_resilience_3lvl_tidy.Rds") 
+
+## unadjusted models
+
+adversity_unadjusted <- lapply(fmri_mid, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(fmri_mid, resilience_unadjusted)  
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "Caudate_antic_MIDqc_adversityunadjusted_3lvl.Rds")
+
+saveRDS(results_adversity_unadjusted, file = "Caudate_antic_MIDqc_adversityunadjusted_3lvl_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "Caudate_antic_MIDqc_resilienceunadjusted_3lvl.Rds") 
+
+saveRDS(results_resilience_unadjusted, file = "Caudate_antic_MIDqc_resilienceunadjusted_3lvl_tidy.Rds") 
+```
+
+
+# Putamen
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(putamen_antic ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(putamen_antic ~ pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+model_adversity<- function(df) {
+  model <- lmer(putamen_antic ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(putamen_antic ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+
+```
+
+```{r run models}
+
+mod_adversity <- lapply(fmri_mid, model_adversity) 
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(fmri_mid, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+saveRDS(mod_adversity, file = "Putamen_antic_MIDqc_adversity_3lvl.Rds") 
+
+saveRDS(results_adversity, file = "Putamen_antic_MIDqc_adversity_3lvl_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "Putamen_antic_MIDqc_resilience_3lvl.Rds") 
+
+saveRDS(results_resilience, file = "Putamen_antic_MIDqc_resilience_3lvl_tidy.Rds") 
+
+## unadjusted models
+
+adversity_unadjusted <- lapply(fmri_mid, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(fmri_mid, resilience_unadjusted) 
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "Putamen_antic_MIDqc_adversityunadjusted_3lvl.Rds") 
+
+saveRDS(results_adversity_unadjusted, file = "Putamen_antic_MIDqc_adversityunadjusted_3lvl_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "Putamen_antic_MIDqc_resilienceunadjusted_3lvl.Rds") 
+
+saveRDS(results_resilience_unadjusted, file = "Putamen_antic_MIDqc_resilienceunadjusted_3lvl_tidy.Rds") 
+```
+
+
+# Consummatory models
+
+# Nucleus Accumbens
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(accumbens_rresp ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(accumbens_rresp ~ pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+
+model_adversity<- function(df) {
+  model <- lmer(accumbens_rresp ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(accumbens_rresp ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+```
+
+```{r run models}
+
+mod_adversity <- lapply(fmri_mid, model_adversity)  
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(fmri_mid, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+saveRDS(mod_adversity, file = "Nacc_rresp_MIDqc_adversity_3lvl.Rds") 
+
+saveRDS(results_adversity, file = "Nacc_rresp_MIDqc_adversity_3lvl_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "Nacc_rresp_MIDqc_resilience_3lvl.Rds") 
+
+saveRDS(results_resilience, file = "Nacc_rresp_MIDqc_resilience_3lvl_tidy.Rds") 
+
+
+## unadjusted models
+
+adversity_unadjusted <- lapply(fmri_mid, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(fmri_mid, resilience_unadjusted)  
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "Nacc_rresp_MIDqc_adversityunadjusted_3lvl.Rds") 
+
+saveRDS(results_adversity_unadjusted, file = "Nacc_rresp_MIDqc_adversityunadjusted_3lvl_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "Nacc_rresp_MIDqc_resilienceunadjusted_3lvl.Rds") 
+
+saveRDS(results_resilience_unadjusted, file = "Nacc_rresp_MIDqc_resilienceunadjusted_3lvl_tidy.Rds") 
+```
+
+
+
+# Caudate Nucleus
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(caudate_rresp ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(caudate_rresp ~ pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+model_adversity<- function(df) {
+  model <- lmer(caudate_rresp ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(caudate_rresp ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+```
+
+```{r run models}
+
+mod_adversity <- lapply(fmri_mid, model_adversity)  
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(fmri_mid, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+saveRDS(mod_adversity, file = "Caudate_rresp_MIDqc_adversity_3lvl.Rds") 
+
+saveRDS(results_adversity, file = "Caudate_rresp_MIDqc_adversity_3lvl_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "Caudate_rresp_MIDqc_resilience_3lvl.Rds") 
+
+saveRDS(results_resilience, file = "Caudate_rresp_MIDqc_resilience_3lvl_tidy.Rds") 
+
+## unadjusted models
+
+adversity_unadjusted <- lapply(fmri_mid, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(fmri_mid, resilience_unadjusted)  
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "Caudate_rresp_MIDqc_adversityunadjusted_3lvl.Rds") 
+
+saveRDS(results_adversity_unadjusted, file = "Caudate_rresp_MIDqc_adversityunadjusted_3lvl_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "Caudate_rresp_MIDqc_resilienceunadjusted_3lvl.Rds") 
+
+saveRDS(results_resilience_unadjusted, file = "Caudate_rresp_MIDqc_resilienceunadjusted_3lvl_tidy.Rds") 
+```
+
+
+# Putamen
+
+```{r model functions}
+
+model_resilience <- function(df) {
+  model <- lmer(putamen_rresp ~ race_ethnicity + sex + pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+resilience_unadjusted <- function(df) {
+  model <- lmer(putamen_rresp ~ pos_school_env + ps_behav + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+model_adversity<- function(df) {
+  model <- lmer(putamen_rresp ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+adversity_unadjusted <- function(df) {
+  model <- lmer(putamen_rresp ~ cg_psych + ses_dis_nsafety + primary_cg_lack_supp
+                + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
+                + trauma_exposure + lack_supervision + age + age_sq +
+                (1 | subjectkey) + (1 | family_id) + (1 | site_id), 
+                data = df, control = lmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 100000)))
+  
+  return(model)
+}
+
+
+```
+
+```{r run models}
+
+mod_adversity <- lapply(fmri_mid, model_adversity)  
+pooled_mod_adversity <- mod_adversity %>% as.mira() %>% pool()
+results_adversity <- broom.mixed::tidy(pooled_mod_adversity, conf.int = TRUE)
+
+mod_resilience <- lapply(fmri_mid, model_resilience)  
+pooled_mod_resilience <- mod_resilience %>% as.mira() %>% pool()
+results_resilience <- broom.mixed::tidy(pooled_mod_resilience, conf.int = TRUE)
+
+saveRDS(mod_adversity, file = "Putamen_rresp_MIDqc_adversity_3lvl.Rds") 
+
+saveRDS(results_adversity, file = "Putamen_rresp_MIDqc_adversity_3lvl_tidy.Rds") 
+
+saveRDS(mod_resilience, file = "Putamen_rresp_MIDqc_resilience_3lvl.Rds") 
+
+saveRDS(results_resilience, file = "Putamen_rresp_MIDqc_resilience_3lvl_tidy.Rds") 
+
+## unadjusted models
+
+adversity_unadjusted <- lapply(fmri_mid, adversity_unadjusted)  
+pooled_adversity_unadjusted <- adversity_unadjusted %>% as.mira() %>% pool()
+results_adversity_unadjusted <- broom.mixed::tidy(pooled_adversity_unadjusted, conf.int = TRUE)
+
+resilience_unadjusted <- lapply(fmri_mid, resilience_unadjusted)  
+pooled_resilience_unadjusted <- resilience_unadjusted %>% as.mira() %>% pool()
+results_resilience_unadjusted <- broom.mixed::tidy(pooled_resilience_unadjusted, conf.int = TRUE)
+
+saveRDS(adversity_unadjusted, file = "Putamen_rresp_MIDqc_adversityunadjusted_3lvl.Rds") 
+
+saveRDS(results_adversity_unadjusted, file = "Putamen_rresp_MIDqc_adversityunadjusted_3lvl_tidy.Rds") 
+
+saveRDS(resilience_unadjusted, file = "Putamen_rresp_MIDqc_resilienceunadjusted_3lvl.Rds") 
+
+saveRDS(results_resilience_unadjusted, file = "Putamen_rresp_MIDqc_resilienceunadjusted_3lvl_tidy.Rds") 
+```
+
