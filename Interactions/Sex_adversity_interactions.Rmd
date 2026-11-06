@@ -115,7 +115,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq + sex*primary_cg_lack_supp +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -145,7 +144,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq + sex*second_cg_lack_supp +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -177,7 +175,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq + sex*yp_family_conflict +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -214,7 +211,6 @@ fit_model <- function(df) {
                 + trauma_exposure + lack_supervision + age + age_sq + sex*lack_supervision +
                 (1 + age | subjectkey) + (1 | family_id),
   data = df,
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -293,80 +289,9 @@ saveRDS(pooled_sex, file = "Results/behavioral/sex_interaction/lack_supervision_
 
 ```
 
-cg1
-
-```{r}
-
-fit_model <- function(df) {
-  
-  model <- lmer(
-   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
-    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
-                + trauma_exposure + lack_supervision + age + age_sq + sex*primary_cg_lack_supp +
-                (1 + age | subjectkey) + (1 | family_id),
-  data = df,
-  REML = FALSE,
-  control = lmerControl(
-    optimizer = "bobyqa",
-    optCtrl = list(maxfun = 1e5)
-  )
-)
-
-  
-  return(model)
-}
 
 
-
-
-modlist <- lapply(bas_rresp, fit_model) 
-
-pooled <- modlist %>% as.mira() %>% pool()
-
-results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
-
-saveRDS(modlist, file = "Results/behavioral/sex_interaction/primary_cg_lack_supp_model.Rds") 
-
-```
-
-cg2
-
-```{r}
-
-fit_model <- function(df) {
-  
-  model <- lmer(
-   rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety +
-    primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
-                + trauma_exposure + lack_supervision + age + age_sq + sex*second_cg_lack_supp +
-                (1 + age | subjectkey) + (1 | family_id),
-  data = df,
-  REML = FALSE,
-  control = lmerControl(
-    optimizer = "bobyqa",
-    optCtrl = list(maxfun = 1e5)
-  )
-)
-
-  
-  return(model)
-}
-
-
-
-
-modlist <- lapply(bas_rresp, fit_model) 
-
-pooled <- modlist %>% as.mira() %>% pool()
-
-results_tidy <- broom.mixed::tidy(pooled, conf.int = TRUE)
-
-saveRDS(modlist, file = "Results/behavioral/sex_interaction/second_cg_lack_supp_model.Rds") 
-
-```
-
-
-yp fam conflict
+Youth report of family conflict
 
 ```{r}
 
@@ -378,7 +303,6 @@ fit_model <- function(df) {
                 + trauma_exposure + lack_supervision + age + age_sq + sex*yp_family_conflict +
                 (1 + age | subjectkey) + (1 | family_id),
   data = df,
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)

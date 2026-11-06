@@ -40,8 +40,7 @@ model_null <- with(bas_rresp, lmer
   (rew_resp_modified ~ race_ethnicity + sex + cg_psych + ses_dis_nsafety + primary_cg_lack_supp
                 + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq +
-                (1 + age | subjectkey) + (1 | family_id), 
-   REML = FALSE, control = lmerControl(
+                (1 + age | subjectkey) + (1 | family_id), control = lmerControl(
    optimizer = "bobyqa",
    optCtrl = list(maxfun = 1e5)
    )))
@@ -51,7 +50,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -81,7 +79,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -107,7 +104,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -137,7 +133,6 @@ model_alt <- with(bas_rresp, lmer(
     primary_cg_lack_supp + second_cg_lack_supp + yp_family_conflict + cg_sub_use_bio_sep + family_anger_arg + family_aggression
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -322,7 +317,6 @@ fit_model <- function(df) {
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
   data = df,
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -455,7 +449,6 @@ fit_model <- function(df) {
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
   data = df,
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
@@ -586,7 +579,6 @@ fit_model <- function(df) {
                 + trauma_exposure + lack_supervision + age + age_sq +
                 (1 + age | subjectkey) + (1 | family_id),
   data = df,
-  REML = FALSE,
   control = lmerControl(
     optimizer = "bobyqa",
     optCtrl = list(maxfun = 1e5)
