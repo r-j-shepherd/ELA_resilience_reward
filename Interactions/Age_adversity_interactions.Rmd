@@ -195,8 +195,14 @@ saveRDS(modlist, file = "Results/behavioral/age_interaction/lack_supervision_age
 
 modlist <- readRDS("Results/behavioral/age_interaction/lack_supervision_age_model.Rds") 
 
+
+# Important to make sure age and age squared are included here
 get_emtrends <- function(model) {
-  emtrends(model, ~ age, var = "lack_supervision", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+  emtrends(model, ~ age + age_sq, var = "lack_supervision",
+           at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16)),
+           lmer.df = "asymptotic") %>%      
+    as.data.frame() %>%
+    dplyr::filter(age_sq == age^2)           
 }
 
 
@@ -346,7 +352,11 @@ saveRDS(modlist, file = "Results/behavioral/age_interaction/lack_prim_supp_age_m
 modlist <- readRDS("Results/behavioral/age_interaction/lack_prim_supp_age_model.Rds") 
 
 get_emtrends <- function(model) {
-  emtrends(model, ~ age, var = "primary_cg_lack_supp", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+  emtrends(model, ~ age + age_sq, var = "primary_cg_lack_supp",
+           at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16)),
+           lmer.df = "asymptotic") %>%      
+    as.data.frame() %>%
+    dplyr::filter(age_sq == age^2)           
 }
 
 
@@ -479,7 +489,11 @@ modlist <- readRDS("Results/behavioral/age_interaction/lack_second_supp_age_mode
 
 
 get_emtrends <- function(model) {
-  emtrends(model, ~ age, var = "second_cg_lack_supp", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+  emtrends(model, ~ age + age_sq, var = "second_cg_lack_supp",
+           at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16)),
+           lmer.df = "asymptotic") %>%      
+    as.data.frame() %>%
+    dplyr::filter(age_sq == age^2)           
 }
 
 
@@ -608,7 +622,11 @@ saveRDS(modlist, file = "Results/behavioral/age_interaction/yp_family_conflict_a
 modlist <- readRDS("Results/behavioral/age_interaction/yp_family_conflict_age_model.Rds") 
 
 get_emtrends <- function(model) {
-  emtrends(model, ~ age, var = "yp_family_conflict", at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16))) %>% as.data.frame()
+  emtrends(model, ~ age + age_sq, var = "yp_family_conflict",
+           at = list(age = c(0, 2, 4), age_sq = c(0, 4, 16)),
+           lmer.df = "asymptotic") %>%      
+    as.data.frame() %>%
+    dplyr::filter(age_sq == age^2)           
 }
 
 

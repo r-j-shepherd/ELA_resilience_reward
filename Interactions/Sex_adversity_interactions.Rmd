@@ -70,41 +70,6 @@ confint(est)
 ```
 
 
-```{r}
-AIC_null <- sapply(model_null$analyses, AIC)
-BIC_null <- sapply(model_null$analyses, BIC)
-
-AIC_null
-BIC_null
-```
-
-
-```{r}
-fit_comparison <- do.call(rbind, lapply(seq_along(model_null$analyses), function(i) {
-  
-  null <- model_null$analyses[[i]]
-  alt  <- model_alt$analyses[[i]]
-  
-  data.frame(
-    imputation = i,
-    logLik_null = as.numeric(logLik(null)),
-    logLik_alt = as.numeric(logLik(alt)),
-    delta_logLik = as.numeric(logLik(alt) - logLik(null)),
-    AIC_null = AIC(null),
-    AIC_alt = AIC(alt),
-    delta_AIC = AIC(alt) - AIC(null),
-    BIC_null = BIC(null),
-    BIC_alt = BIC(alt),
-    delta_BIC = BIC(alt) - BIC(null)
-  )
-}))
-
-fit_comparison
-
-null <- model_null$analyses[[1]]
-```
-
-
 
 # Lack of primary caregiver support
 
