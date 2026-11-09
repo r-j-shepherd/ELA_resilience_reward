@@ -9,9 +9,9 @@ The repository includes 7 scripts used for the primary analyses, which should be
 
 "3_get_adversity_factor_scores" details the factor score calculation procedure using 10 imputed item-level datasets, and the factor loadings matrix provided by Brieant et al. (2023) (included in "Adversity_factor_loadings").
 
-"4_clean_MRI_data" details the exclusion of Monetary Inventive Delay data based on ABCD's quality control pipeline, which flags data based on behavioural task performance and poor image quality.
+"4_clean_MRI_data" details the exclusion of Monetary Incentive Delay data based on ABCD's quality control pipeline, which flags data based on behavioural task performance and poor image quality.
 
-"5_create_datasets_for_mlm" details the cleaning and merging of covariate and outcome data to create analysis datatsets for the mixed effects models.
+"5_create_datasets_for_mlm" details the cleaning and merging of covariate and outcome data to create analysis datasets for the mixed effects models.
 
 "6_mlm_models" details the implementation of the mixed effects/multilevel models, using the cleaned neural and behavioural datasets.
 
