@@ -65,7 +65,7 @@ adversity_terms <- c(
 
 adversity_fdr <- all_models %>%
   filter(term %in% adversity_terms) %>%
-  group_by(term, contrast) %>%   # <-- key change
+  group_by(term, contrast) %>%  
   mutate(p_fdr = p.adjust(p.value, method = "BH")) %>%
   ungroup()
 
