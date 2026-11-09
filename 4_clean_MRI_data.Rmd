@@ -10,7 +10,6 @@ library(tidyverse)
 library(glue)
 library(lme4)
 library(ggplot2)
-library(mice)
 
 rm(list = ls())
 
@@ -19,6 +18,8 @@ abcd_fld <- Sys.getenv("abcd_fld")
 
 ```
 
+
+# Load ABCD's QC indicators
 
 ```{r}
 QC_inc <- glue("{abcd_fld}/imaging/mri_y_qc_incl.csv") %>% read.csv() %>%
@@ -31,6 +32,8 @@ QC_exc <- glue("{abcd_fld}/imaging/mri_y_qc_incl.csv") %>% read.csv() %>%
 
 ```
 
+
+# Load striatal MID data
 
 ```{r}
 # MID Reward positive vs. negative feedback - take average of both hemispheres
@@ -75,7 +78,6 @@ fmri <- merge(fmri_mid_consummatory, fmri_mid_anticipatory, by = c("subjectkey",
 ```
 
 
-
 ```{r}
 fmri_qc_inc <- fmri %>%
   inner_join(QC_inc, by = c("subjectkey", "eventname")) %>% 
@@ -85,35 +87,27 @@ fmri_qc_exc <- fmri %>%
   inner_join(QC_exc, by = c("subjectkey", "eventname")) %>% 
   select(-include) 
 
-#fmri_qc_bl <- fmri %>%
-#  inner_join(QC, by = c("subjectkey", "eventname")) %>%
-#  filter(eventname == "4_year_follow_up_y_arm_1")
-
-# BL n = 9164
-# FU2 n = 6735
-# FU4 n = 2675
-
-
-
 ```
 
+# see how many participants and scans were excluded
 
 ```{r}
-# number of participants excluded 
-# 1698 scans from 520 individuals were excluded based on quality control
-
-# number of unique subjects in fmri (n = 11074)
-totalids_fmri <- fmri %>% n_distinct(.$subjectkey)
-
-# number of unique subjects in QC (10554)
-totalids_qc_inc <- fmri_qc_inc %>% summarise(n_distinct(subjectkey))
-
-totalids_qc_exc <- fmri_qc_exc %>% summarise(n_distinct(subjectkey))
+n_scans_total    <- nrow(fmri)
+n_scans_excluded <- nrow(fmri_qc_exc)
+n_ids_excluded   <- n_distinct(fmri_qc_exc$subjectkey)          
+n_ids_no_usable  <- length(setdiff(unique(fmri$subjectkey), unique(fmri_qc_inc$subjectkey)))
+n_ids_usable     <- n_distinct(fmri_qc_inc$subjectkey)
 ```
 
-
+# save post-QC data
 
 ```{r}
-#saveRDS(fmri_qc_inc, file = "Data/Clean_data/fmri_qc.rds")
+saveRDS(fmri_qc_inc, file = "Data/Clean_data/fmri_qc.rds")
 ```
+
+
+
+
+
+
 
